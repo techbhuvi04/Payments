@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Paytm Autonomous Resolution Agent</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <section id="landing">
+    <header>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <h1>Paytm <span class="accent">Autonomous</span> Resolution Agent</h1>
+      </div>
+      <span class="status-indicator resolved"><span class="status-dot"></span><span>DhanAi</span></span>
+    </header>
+
+    <section class="hero">
+      <h1>Autonomous refund resolution, not another chatbot</h1>
+      <p class="subhead">A hand-rolled agent that reads a complaint, investigates the transaction, and takes action — refund, settlement, or escalation — in seconds.</p>
+      <div class="hero-actions">
+        <button class="btn-primary" id="openConsoleBtn">Open Customer Service</button>
+        <button class="btn-ghost" id="learnMoreBtn">Learn more</button>
+      </div>
+    </section>
+
+    <section class="reveal comparison">
+      <div class="compare-card compare-muted">
+        <h3>Traditional chatbot</h3>
+        <div class="compare-step"><span class="dot dot-grey"></span> Reads the complaint, matches a script</div>
+        <div class="compare-step"><span class="dot dot-grey"></span> Asks the customer for details it already has</div>
+        <div class="compare-step"><span class="dot dot-grey"></span> Cannot touch bank or refund systems</div>
+        <div class="compare-step"><span class="dot dot-grey"></span> Hands off to a human, 24-48h later</div>
+      </div>
+      <div class="compare-card compare-highlight">
+        <span class="pill-badge">This build</span>
+        <h3>Autonomous teammate</h3>
+        <div class="compare-step"><span class="check">&#10003;</span> Parses amount, merchant, date, issue type</div>
+        <div class="compare-step"><span class="check">&#10003;</span> Looks up transactions and bank settlement itself</div>
+        <div class="compare-step"><span class="check">&#10003;</span> Executes refund, settlement, or escalation directly</div>
+        <div class="compare-step"><span class="check">&#10003;</span> Resolves or escalates with full context in seconds</div>
+      </div>
+    </section>
+
+    <section class="reveal capabilities">
+      <div class="cap-card">
+        <h4>7 system tools</h4>
+        <p>Transactions, bank settlement, refunds, force-settlement, CRM, SMS, and escalation — all callable by the agent.</p>
+      </div>
+      <div class="cap-card">
+        <h4>Code-level guardrails</h4>
+        <p>Refund limits and duplicate-refund checks are enforced in code, not left to the model's judgment.</p>
+      </div>
+      <div class="cap-card">
+        <h4>Calibrated escalation</h4>
+        <p>High amounts, repeat complaints, or ambiguous cases are hedged to a human with full context, not guessed at.</p>
+      </div>
+      <div class="cap-card">
+        <h4>Full audit trail</h4>
+        <p>Every tool call, guardrail block, and decision is logged in order, before the response is even returned.</p>
+      </div>
+    </section>
+
+    <section class="reveal metrics">
+      <div class="metric">
+        <div class="metric-num">75%</div>
+        <div class="metric-label">Resolved autonomously</div>
+      </div>
+      <div class="metric">
+        <div class="metric-num">~8s</div>
+        <div class="metric-label">vs 48h manual</div>
+      </div>
+      <div class="metric">
+        <div class="metric-num">0</div>
+        <div class="metric-label">Guardrail breaches</div>
+      </div>
+      <div class="metric">
+        <div class="metric-num">6-7</div>
+        <div class="metric-label">Actions per ticket</div>
+      </div>
+    </section>
+  </section>
+
+  <div class="app hidden" id="console">
+    <header>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button class="back-btn hidden" id="backBtn" aria-label="Back to landing">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        </button>
+        <h1>Paytm <span class="accent">Autonomous</span> Resolution Agent</h1>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="status-indicator" id="statusIndicator"><span class="status-dot"></span><span id="statusText">DhanAi</span></span>
+        <button class="reset-btn" id="resetBtn">Reset all state</button>
+      </div>
+    </header>
+
+    <div class="columns">
+      <div class="col">
+        <h2>Customer Chat</h2>
+        <div class="presets">
+          <button class="preset-btn" data-scenario="A">Scenario A</button>
+          <button class="preset-btn" data-scenario="B">Scenario B</button>
+          <button class="preset-btn" data-scenario="C">Scenario C</button>
+          <button class="preset-btn" data-scenario="D">Scenario D</button>
+        </div>
+        <div class="col-body" id="chatBody"></div>
+        <div class="chat-input">
+          <textarea id="complaintInput" placeholder="Describe the issue..."></textarea>
+          <button id="sendBtn">Send</button>
+        </div>
+      </div>
+
+      <div class="col">
+        <h2>Live Agent Activity</h2>
+        <div class="col-body" id="activityBody"></div>
+      </div>
+
+      <div class="col">
+        <h2>System State</h2>
+        <div class="col-body" id="stateBody">
+          <div class="state-box" id="ticketBox"><h3>Ticket</h3><div class="kv">No ticket yet</div></div>
+          <div class="state-box" id="txnBox"><h3>Transactions</h3><div class="kv">No data</div></div>
+          <div class="state-box" id="refundBox"><h3>Refunds</h3><div class="kv">None</div></div>
+          <div class="state-box" id="smsBox"><h3>SMS Outbox</h3><div class="kv">Empty</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

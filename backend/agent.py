@@ -2,12 +2,13 @@
 import json
 import os
 import time
+from datetime import datetime
 from dotenv import load_dotenv
 from openai import OpenAI
 from tools import TOOL_SCHEMAS, to_openai_tools, execute_tool, GuardrailBlocked
 from audit_log import log_event
 
-load_dotenv()
+load_dotenv(override=True)
 
 GROQ_MODEL = "openai/gpt-oss-120b"
 MAX_STEPS = 12
@@ -95,7 +96,7 @@ def run_agent_stream(customer_id: str, ticket_id: str, complaint_text: str, verb
         steps += 1
         response = client.chat.completions.create(
             model=GROQ_MODEL,
-            max_tokens=1024,
+            max_tokens=400,
             tools=OPENAI_TOOLS,
             messages=messages,
         )
@@ -135,6 +136,58 @@ def run_agent_stream(customer_id: str, ticket_id: str, complaint_text: str, verb
     log_event("system", "max_steps_exceeded", {"ticket_id": ticket_id})
     _force_escalate(ticket_id, "Agent exceeded max steps without resolving.")
     yield {"type": "final", "result": {"status": "force_escalated", "steps": steps}}
+
+
+def run_agent_events(customer_id: str, ticket_id: str, complaint_text: str):
+    """Run the agent, yielding events in the fixed API schema:
+    {seq, type, tool, args, result, latency_ms, blocked, timestamp}
+
+    type in: thinking | tool_call | guardrail_block | message_sent | escalation | done
+    Decision logic is untouched - this only reshapes run_agent_stream's events for the API.
+    """
+    seq = 0
+
+    def _emit(event_type: str, tool=None, args=None, result=None, latency_ms=None, blocked=False):
+        nonlocal seq
+        seq += 1
+        return {
+            "seq": seq,
+            "type": event_type,
+            "tool": tool,
+            "args": args,
+            "result": result,
+            "latency_ms": latency_ms,
+            "blocked": blocked,
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+        }
+
+    yield _emit("thinking", result="Reading complaint and looking up account history...")
+
+    for event in run_agent_stream(customer_id, ticket_id, complaint_text, verbose=False):
+        if event["type"] == "tool_call":
+            name = event["name"]
+            if event["is_error"]:
+                yield _emit(
+                    "guardrail_block", tool=name, args=event["input"],
+                    result=event["result"], latency_ms=event["latency_ms"], blocked=True,
+                )
+            elif name == "send_customer_message":
+                yield _emit(
+                    "message_sent", tool=name, args=event["input"],
+                    result=event["result"], latency_ms=event["latency_ms"],
+                )
+            elif name == "escalate_to_human":
+                yield _emit(
+                    "escalation", tool=name, args=event["input"],
+                    result=event["result"], latency_ms=event["latency_ms"],
+                )
+            else:
+                yield _emit(
+                    "tool_call", tool=name, args=event["input"],
+                    result=event["result"], latency_ms=event["latency_ms"],
+                )
+        elif event["type"] == "final":
+            yield _emit("done", result=event["result"])
 
 
 def _run_tool(name: str, tool_input: dict, verbose: bool) -> tuple[str, bool, int]:
