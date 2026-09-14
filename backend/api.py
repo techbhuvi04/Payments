@@ -2,6 +2,7 @@
 import asyncio
 import uuid
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -110,4 +111,5 @@ async def reset():
     return {"status": "reset"}
 
 
-app.mount("/", StaticFiles(directory="web", html=True), name="web")
+WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+app.mount("/", StaticFiles(directory=str(WEB_DIR), html=True), name="web")
