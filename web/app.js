@@ -44,6 +44,13 @@ const roleUserCard = document.getElementById("roleUserCard");
 const roleMerchantCard = document.getElementById("roleMerchantCard");
 const roleBusinessCard = document.getElementById("roleBusinessCard");
 
+// Login screen
+const loginView = document.getElementById("login");
+const loginForm = document.getElementById("loginForm");
+const loginBackBtn = document.getElementById("loginBackBtn");
+const loginRoleIcon = document.getElementById("loginRoleIcon");
+const loginRoleTitle = document.getElementById("loginRoleTitle");
+
 // Merchant workspace
 const merchantView = document.getElementById("merchant");
 const merchantBackBtn = document.getElementById("merchantBackBtn");
@@ -61,6 +68,53 @@ const goPlatformReconBtn = document.getElementById("goPlatformReconBtn");
 const humanInboxBtnMerch = document.getElementById("humanInboxBtnMerch");
 const inboxBadgeMerch = document.getElementById("inboxBadgeMerch");
 const humanInboxBtnBiz = document.getElementById("humanInboxBtnBiz");
+
+// ---------- Home dashboard / assistant-overlay elements ----------
+// User workspace
+const userTxnList = document.getElementById("userTxnList");
+const userAskAiFab = document.getElementById("userAskAiFab");
+const userAssistOverlay = document.getElementById("userAssistOverlay");
+const userAssistClose = document.getElementById("userAssistClose");
+const userExplainToggle = document.getElementById("userExplainToggle");
+const userExplainWrap = document.getElementById("userExplainWrap");
+const qaGetHelp = document.getElementById("qaGetHelp");
+const qaRefundHelp = document.getElementById("qaRefundHelp");
+const userScenarioToggle = document.getElementById("userScenarioToggle");
+const userScenarioPresets = document.getElementById("userScenarioPresets");
+
+// Merchant workspace
+const merchantTxnList = document.getElementById("merchantTxnList");
+const merchantExceptionsBadge = document.getElementById("merchantExceptionsBadge");
+const merchantAskAiFab = document.getElementById("merchantAskAiFab");
+const merchantAssistOverlay = document.getElementById("merchantAssistOverlay");
+const merchantAssistClose = document.getElementById("merchantAssistClose");
+const merchantExplainToggle = document.getElementById("merchantExplainToggle");
+const merchantExplainWrap = document.getElementById("merchantExplainWrap");
+const qaRunSweep = document.getElementById("qaRunSweep");
+const qaMerchantAskAi = document.getElementById("qaMerchantAskAi");
+const qaGoRecon = document.getElementById("qaGoRecon");
+
+// Business Owner workspace
+const leadListCards = document.getElementById("leadListCards");
+const salesAskAiFab = document.getElementById("salesAskAiFab");
+const salesAssistOverlay = document.getElementById("salesAssistOverlay");
+const salesAssistClose = document.getElementById("salesAssistClose");
+const salesExplainToggle = document.getElementById("salesExplainToggle");
+const salesExplainWrap = document.getElementById("salesExplainWrap");
+const qaBizAskAi = document.getElementById("qaBizAskAi");
+
+// Generic overlay open/close helper, reused by all three workspaces.
+function openAssistOverlay(overlayEl) {
+  overlayEl.classList.remove("hidden");
+}
+function closeAssistOverlay(overlayEl) {
+  overlayEl.classList.add("hidden");
+}
+function toggleExplain(toggleBtn, wrapEl, label = "How did AI decide this?") {
+  const isHidden = wrapEl.classList.contains("hidden");
+  wrapEl.classList.toggle("hidden");
+  toggleBtn.textContent = isHidden ? `${label} ↑` : `${label} ↓`;
+}
 
 let currentCustomerId = "CUST_A";
 let renderedCount = 0;
@@ -298,32 +352,86 @@ async function loadUserBrief(customerId) {
   }
 }
 
+let latestUserBrief = null;
+
 function renderUserBrief(brief) {
+  latestUserBrief = brief;
   const wrap = document.getElementById("userBriefWrap");
   if (!brief.has_data) {
-    wrap.innerHTML = `<div class="brief-card"><h3>Personal AI Brief</h3><div class="panel-empty">${escapeHtml(brief.proactive_message)}</div></div>`;
+    wrap.innerHTML = `<h3>Your DhanAI Balance</h3><div class="panel-empty">${escapeHtml(brief.proactive_message)}</div>`;
+    renderUserTxnList(brief);
     return;
   }
   const s = brief.spend_summary;
-  const attentionRows = brief.needs_attention.length
-    ? brief.needs_attention.map(a => `<div class="brief-list-item">&#9888; Rs.${Number(a.amount).toLocaleString("en-IN")} &middot; ${escapeHtml(a.merchant_name)} &mdash; ${escapeHtml(a.issue)}</div>`).join("")
-    : `<div class="brief-empty">Nothing needs attention right now.</div>`;
-  const refundRows = brief.refund_status.length
-    ? brief.refund_status.map(r => `<div class="brief-list-item">Rs.${Number(r.amount).toLocaleString("en-IN")} refund &middot; ${r.status} &middot; ETA ${r.eta_hours}h</div>`).join("")
-    : "";
 
   wrap.innerHTML = `
-    <div class="brief-card">
-      <h3>Personal AI Brief</h3>
-      <div class="brief-message">${escapeHtml(brief.proactive_message)}</div>
-      <div class="brief-stats">
-        <div class="brief-stat"><div class="num">Rs.${Number(s.total_spend_7d).toLocaleString("en-IN")}</div><div class="label">Spend, 7d</div></div>
-        <div class="brief-stat"><div class="num">Rs.${Number(s.total_spend_30d).toLocaleString("en-IN")}</div><div class="label">Spend, 30d</div></div>
-        <div class="brief-stat"><div class="num">${s.transaction_count_30d}</div><div class="label">Txns, 30d</div></div>
-      </div>
-      ${attentionRows}
-      ${refundRows}
+    <h3>Spend Summary</h3>
+    <div class="brief-message">${escapeHtml(brief.proactive_message)}</div>
+    <div class="brief-stats">
+      <div class="brief-stat"><div class="num">Rs.${Number(s.total_spend_7d).toLocaleString("en-IN")}</div><div class="label">Spend, 7d</div></div>
+      <div class="brief-stat"><div class="num">Rs.${Number(s.total_spend_30d).toLocaleString("en-IN")}</div><div class="label">Spend, 30d</div></div>
+      <div class="brief-stat"><div class="num">${s.transaction_count_30d}</div><div class="label">Txns, 30d</div></div>
     </div>`;
+  renderUserTxnList(brief);
+}
+
+// ---------- RECENT TRANSACTIONS LIST (Paytm User home) ----------
+// Built client-side from the deterministic brief's needs_attention (issues) and
+// refund_status (already-resolved items) - no new backend endpoint invented.
+// Rows with an issue are tappable and open the assistant panel pre-filled with the
+// matching SCENARIOS complaint (matched by customer_id), reusing existing flows.
+function renderUserTxnList(brief) {
+  if (!userTxnList) return;
+  if (!brief.has_data) {
+    userTxnList.innerHTML = `<div class="panel-empty">No recent transactions.</div>`;
+    return;
+  }
+  const rows = [];
+  (brief.needs_attention || []).forEach(a => {
+    const isFailed = /failed/i.test(a.issue);
+    rows.push({
+      merchant: a.merchant_name, amount: a.amount, txn_id: a.txn_id,
+      sub: a.issue, badgeClass: isFailed ? "badge-red" : "badge-amber",
+      badgeText: isFailed ? "FAILED" : "PENDING",
+      actionable: true,
+    });
+  });
+  (brief.refund_status || []).forEach(r => {
+    rows.push({
+      merchant: r.merchant_name, amount: r.amount, txn_id: r.txn_id,
+      sub: `Refund ${r.status} · ETA ${r.eta_hours}h`, badgeClass: "badge-green",
+      badgeText: r.status === "COMPLETED" ? "REFUNDED" : "SUCCESS",
+      actionable: false,
+    });
+  });
+
+  if (!rows.length) {
+    userTxnList.innerHTML = `<div class="panel-empty">No recent transactions need attention.</div>`;
+    return;
+  }
+
+  userTxnList.innerHTML = rows.map((r, i) => `
+    <div class="txn-row ${r.actionable ? "" : "not-actionable"}" data-idx="${i}" style="animation-delay:${i * 40}ms">
+      <div class="txn-main">
+        <div class="txn-merchant">${escapeHtml(r.merchant)}</div>
+        <div class="txn-sub">${escapeHtml(r.sub)}</div>
+      </div>
+      <div class="txn-side">
+        <div class="txn-amount">Rs.${Number(r.amount).toLocaleString("en-IN")}</div>
+        <span class="status-badge ${r.badgeClass}">${r.badgeText}</span>
+      </div>
+    </div>`).join("");
+
+  userTxnList.querySelectorAll(".txn-row").forEach((el, i) => {
+    if (!rows[i].actionable) return;
+    el.addEventListener("click", () => {
+      const scenario = SCENARIOS[currentCustomerId.replace("CUST_", "")];
+      openAssistOverlay(userAssistOverlay);
+      const complaint = scenario ? scenario.complaint :
+        `I have an issue with my Rs.${rows[i].amount} payment to ${rows[i].merchant} (${rows[i].sub}).`;
+      startRun(currentCustomerId, complaint);
+    });
+  });
 }
 
 async function refreshStats() {
@@ -609,6 +717,7 @@ complaintInput.addEventListener("keydown", (e) => {
 document.querySelectorAll(".preset-btn[data-scenario]").forEach(btn => {
   btn.addEventListener("click", () => {
     const scenario = SCENARIOS[btn.dataset.scenario];
+    openAssistOverlay(userAssistOverlay);
     startRun(scenario.customer_id, scenario.complaint);
     loadUserBrief(scenario.customer_id);
   });
@@ -628,6 +737,36 @@ resetBtn.addEventListener("click", async () => {
   refreshStats();
   refreshInboxBadge();
   loadUserBrief(currentCustomerId);
+});
+
+// ---------- Paytm User home dashboard wiring ----------
+userAskAiFab.addEventListener("click", () => openAssistOverlay(userAssistOverlay));
+userAssistClose.addEventListener("click", () => closeAssistOverlay(userAssistOverlay));
+userExplainToggle.addEventListener("click", () => toggleExplain(userExplainToggle, userExplainWrap));
+
+qaGetHelp.addEventListener("click", () => openAssistOverlay(userAssistOverlay));
+qaRefundHelp.addEventListener("click", () => {
+  openAssistOverlay(userAssistOverlay);
+  const scenario = SCENARIOS[currentCustomerId.replace("CUST_", "")];
+  const complaint = scenario ? scenario.complaint : "I need help with a refund on a recent payment.";
+  startRun(currentCustomerId, complaint);
+});
+
+// ---------- Paytm User bottom nav ----------
+const userNavHome = document.getElementById("userNavHome");
+const userNavAskAi = document.getElementById("userNavAskAi");
+const userNavInbox = document.getElementById("userNavInbox");
+const userNavProfile = document.getElementById("userNavProfile");
+
+userNavHome.addEventListener("click", () => closeAssistOverlay(userAssistOverlay));
+userNavAskAi.addEventListener("click", () => openAssistOverlay(userAssistOverlay));
+userNavInbox.addEventListener("click", () => openInbox());
+userNavProfile.addEventListener("click", () => backBtn.click());
+
+userScenarioToggle.addEventListener("click", () => {
+  const isHidden = userScenarioPresets.classList.contains("hidden");
+  userScenarioPresets.classList.toggle("hidden");
+  userScenarioToggle.textContent = isHidden ? "Hide demo scenarios ↑" : "Try demo scenarios (A–G) →";
 });
 
 // ---------- ROLE SELECTOR / WORKSPACE ROUTER ----------
@@ -666,9 +805,50 @@ async function backToLanding() {
   sendBtn.disabled = false;
   setStatus("", "Idle");
   renderState({ ticket: null, transactions: [], refunds: {}, sms_outbox: [] });
+  closeAssistOverlay(userAssistOverlay);
 }
 
-roleUserCard.addEventListener("click", () => { openConsole(); refreshStats(); refreshInboxBadge(); });
+// ---------- LOGIN GATE ----------
+// Role card tap opens a mock login screen for that role first; submitting the
+// form (any values, even empty, are accepted - there's no real backend auth)
+// routes into the same workspace-opening functions the role cards used to call
+// directly, so the dashboard-first interaction model is unchanged past this point.
+const ROLE_LOGIN_CONFIG = {
+  user: { icon: "&#128100;", title: "Login as Paytm User", open: () => { openConsole(); refreshStats(); refreshInboxBadge(); } },
+  merchant: { icon: "&#127974;", title: "Login as Merchant", open: () => { openMerchant(); } },
+  business: { icon: "&#128200;", title: "Login as Business Owner", open: () => { openSales(); } },
+};
+let pendingLoginRole = "user";
+
+function openLogin(role) {
+  pendingLoginRole = role;
+  const cfg = ROLE_LOGIN_CONFIG[role] || ROLE_LOGIN_CONFIG.user;
+  loginRoleIcon.innerHTML = cfg.icon;
+  loginRoleTitle.textContent = cfg.title;
+  loginForm.reset();
+  landing.classList.add("fade-out");
+  setTimeout(() => {
+    landing.classList.add("hidden");
+    landing.classList.remove("fade-out");
+    loginView.classList.remove("hidden");
+  }, 250);
+}
+
+function closeLoginToLanding() {
+  loginView.classList.add("hidden");
+  landing.classList.remove("hidden", "fade-out");
+}
+
+loginBackBtn.addEventListener("click", closeLoginToLanding);
+
+loginForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  loginView.classList.add("hidden");
+  const cfg = ROLE_LOGIN_CONFIG[pendingLoginRole] || ROLE_LOGIN_CONFIG.user;
+  cfg.open();
+});
+
+roleUserCard.addEventListener("click", () => openLogin("user"));
 backBtn.addEventListener("click", backToLanding);
 
 const revealObserver = new IntersectionObserver((entries) => {
@@ -689,15 +869,49 @@ function setSalesStatus(kind, label) {
   salesStatusText.textContent = label;
 }
 
+let latestLeads = [];
+
 async function loadLeadPresets() {
   const res = await fetch("/api/sales/leads");
   const data = await res.json();
+  latestLeads = data.leads;
+
   leadPresets.innerHTML = data.leads.map(l =>
     `<button class="preset-btn" data-lead-id="${l.lead_id}">${l.lead_id}</button>`
   ).join("");
   leadPresets.querySelectorAll(".preset-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       const lead = data.leads.find(l => l.lead_id === btn.dataset.leadId);
+      openAssistOverlay(salesAssistOverlay);
+      renderLeadPreview(lead);
+      startSalesRun(lead.lead_id, lead.customer_id, lead.cart_value);
+    });
+  });
+
+  renderLeadListCards(data.leads);
+}
+
+// ---------- Business Owner home: recovery lead cards ----------
+function renderLeadListCards(leads) {
+  if (!leadListCards) return;
+  if (!leads.length) {
+    leadListCards.innerHTML = `<div class="panel-empty">No recovery leads right now.</div>`;
+    return;
+  }
+  leadListCards.innerHTML = leads.map((l, i) => `
+    <div class="lead-card" data-lead-id="${l.lead_id}" style="animation-delay:${i * 40}ms">
+      <div class="lead-card-head">
+        <span class="lead-card-title">${escapeHtml(l.merchant_name)}</span>
+        <span class="lead-tier">${escapeHtml(l.customer_tier)}</span>
+      </div>
+      <div class="lead-card-sub">${l.lead_id} &middot; Rs.${Number(l.cart_value).toLocaleString("en-IN")} cart &middot; ${l.checkout_status} &middot; ${l.prior_coupons_used} prior coupon(s)</div>
+    </div>`).join("");
+
+  leadListCards.querySelectorAll(".lead-card").forEach(card => {
+    card.addEventListener("click", () => {
+      const lead = latestLeads.find(l => l.lead_id === card.dataset.leadId);
+      if (!lead) return;
+      openAssistOverlay(salesAssistOverlay);
       renderLeadPreview(lead);
       startSalesRun(lead.lead_id, lead.customer_id, lead.cart_value);
     });
@@ -825,7 +1039,7 @@ async function loadBusinessBrief() {
 function renderBusinessBrief(brief) {
   const wrap = document.getElementById("businessBriefWrap");
   if (!brief.has_data) {
-    wrap.innerHTML = `<div class="brief-card"><h3>Business AI Brief</h3><div class="panel-empty">No leads yet.</div></div>`;
+    wrap.innerHTML = `<h3>Business AI Brief</h3><div class="panel-empty">No leads yet.</div>`;
     return;
   }
   const r = brief.recoverable_leads;
@@ -835,17 +1049,15 @@ function renderBusinessBrief(brief) {
     : "";
 
   wrap.innerHTML = `
-    <div class="brief-card">
-      <h3>Business AI Brief</h3>
-      <div class="brief-message">${r.count} recoverable lead(s) worth an estimated Rs.${Number(r.estimated_value).toLocaleString("en-IN")}.</div>
-      <div class="brief-stats">
-        <div class="brief-stat"><div class="num">${r.count}</div><div class="label">Recoverable leads</div></div>
-        <div class="brief-stat"><div class="num">Rs.${Number(r.estimated_value).toLocaleString("en-IN")}</div><div class="label">Est. value</div></div>
-        <div class="brief-stat"><div class="num">${cd.customers_at_coupon_limit}</div><div class="label">At coupon limit</div></div>
-      </div>
-      ${retryOnly}
-      <div class="brief-list-item">Discount protected so far: Rs.${Number(cd.estimated_discount_protected).toLocaleString("en-IN")} (guardrail: max ${cd.max_discount_pct}%, ${cd.max_coupons_per_customer} coupon/customer)</div>
-    </div>`;
+    <h3>Business AI Brief</h3>
+    <div class="brief-message">${r.count} recoverable lead(s) worth an estimated Rs.${Number(r.estimated_value).toLocaleString("en-IN")}.</div>
+    <div class="brief-stats">
+      <div class="brief-stat"><div class="num">${r.count}</div><div class="label">Recoverable leads</div></div>
+      <div class="brief-stat"><div class="num">Rs.${Number(r.estimated_value).toLocaleString("en-IN")}</div><div class="label">Est. value</div></div>
+      <div class="brief-stat"><div class="num">${cd.customers_at_coupon_limit}</div><div class="label">At coupon limit</div></div>
+    </div>
+    ${retryOnly}
+    <div class="brief-list-item">Discount protected so far: Rs.${Number(cd.estimated_discount_protected).toLocaleString("en-IN")} (guardrail: max ${cd.max_discount_pct}%, ${cd.max_coupons_per_customer} coupon/customer)</div>`;
 }
 
 // ---------- IMPACT CARD ----------
@@ -890,19 +1102,39 @@ function openSales() {
   hideAllWorkspaces();
   salesView.classList.remove("hidden");
   document.body.classList.add("console-active");
-  if (!leadPresets.children.length) loadLeadPresets();
+  if (latestLeads.length) renderLeadListCards(latestLeads);
+  else loadLeadPresets();
   loadBusinessBrief();
   resetImpactCard();
+  closeAssistOverlay(salesAssistOverlay);
 }
 
 salesBackBtn.addEventListener("click", () => {
   hideAllWorkspaces();
   document.body.classList.remove("console-active");
   landing.classList.remove("hidden", "fade-out");
+  closeAssistOverlay(salesAssistOverlay);
 });
 
-roleBusinessCard.addEventListener("click", openSales);
+roleBusinessCard.addEventListener("click", () => openLogin("business"));
 humanInboxBtnBiz.addEventListener("click", openInbox);
+
+// ---------- Business Owner home dashboard wiring ----------
+salesAskAiFab.addEventListener("click", () => openAssistOverlay(salesAssistOverlay));
+salesAssistClose.addEventListener("click", () => closeAssistOverlay(salesAssistOverlay));
+salesExplainToggle.addEventListener("click", () => toggleExplain(salesExplainToggle, salesExplainWrap));
+qaBizAskAi.addEventListener("click", () => openAssistOverlay(salesAssistOverlay));
+
+// ---------- Business Owner bottom nav ----------
+const salesNavHome = document.getElementById("salesNavHome");
+const salesNavAskAi = document.getElementById("salesNavAskAi");
+const salesNavInbox = document.getElementById("salesNavInbox");
+const salesNavProfile = document.getElementById("salesNavProfile");
+
+salesNavHome.addEventListener("click", () => closeAssistOverlay(salesAssistOverlay));
+salesNavAskAi.addEventListener("click", () => openAssistOverlay(salesAssistOverlay));
+salesNavInbox.addEventListener("click", () => openInbox());
+salesNavProfile.addEventListener("click", () => salesBackBtn.click());
 
 salesResetBtn.addEventListener("click", async () => {
   if (salesPollTimer) clearInterval(salesPollTimer);
@@ -916,6 +1148,7 @@ salesResetBtn.addEventListener("click", async () => {
   loadLeadPresets();
   loadBusinessBrief();
   resetImpactCard();
+  closeAssistOverlay(salesAssistOverlay);
 });
 
 // ---------- RECONCILIATION TEAMMATE ----------
@@ -1084,6 +1317,7 @@ async function loadMerchantBrief(merchantId) {
 function renderMerchantBriefFromState(merchant, state) {
   if (!merchant) {
     merchantBriefWrap.innerHTML = `<div class="panel-empty">Select a merchant above.</div>`;
+    renderMerchantTxnList(state);
     return;
   }
   const txns = (state && state.transactions) || [];
@@ -1091,16 +1325,15 @@ function renderMerchantBriefFromState(merchant, state) {
   const collectedTotal = txns.reduce((sum, t) => sum + Number(t.amount), 0);
 
   merchantBriefWrap.innerHTML = `
-    <div class="brief-card">
-      <h3>Merchant AI Brief</h3>
-      <div class="brief-message">${escapeHtml(merchant.name)} &middot; ${escapeHtml(merchant.owner_name)} &middot; ${escapeHtml(merchant.category)}</div>
-      <div class="brief-stats">
-        <div class="brief-stat"><div class="num">Rs.${Number(collectedTotal).toLocaleString("en-IN")}</div><div class="label">Recorded collections</div></div>
-        <div class="brief-stat"><div class="num">${pendingCount}</div><div class="label">Pending/unverified</div></div>
-        <div class="brief-stat"><div class="num">${txns.length}</div><div class="label">Transactions</div></div>
-      </div>
-      <div class="brief-list-item">Run a settlement sweep or ask a question below to investigate and act.</div>
-    </div>`;
+    <h3>Merchant AI Brief</h3>
+    <div class="brief-message">${escapeHtml(merchant.name)} &middot; ${escapeHtml(merchant.owner_name)} &middot; ${escapeHtml(merchant.category)}</div>
+    <div class="brief-stats">
+      <div class="brief-stat"><div class="num">Rs.${Number(collectedTotal).toLocaleString("en-IN")}</div><div class="label">Recorded collections</div></div>
+      <div class="brief-stat"><div class="num">${pendingCount}</div><div class="label">Pending/unverified</div></div>
+      <div class="brief-stat"><div class="num">${txns.length}</div><div class="label">Transactions</div></div>
+    </div>
+    <div class="brief-list-item">Run a settlement sweep or ask a question via Ask AI to investigate and act.</div>`;
+  renderMerchantTxnList(state);
 }
 
 async function loadMerchantState(merchantId) {
@@ -1108,9 +1341,36 @@ async function loadMerchantState(merchantId) {
     const res = await fetch(`/api/merchant/${merchantId}/state`);
     const state = await res.json();
     renderMerchantTxnBox(state);
+    renderMerchantTxnList(state);
   } catch (e) {
     renderMerchantTxnBox({ transactions: [] });
+    renderMerchantTxnList({ transactions: [] });
   }
+}
+
+// ---------- Merchant home: Paytm-style collections/settlements list ----------
+function renderMerchantTxnList(state) {
+  if (!merchantTxnList) return;
+  const txns = (state && state.transactions || []).filter(Boolean);
+  if (!txns.length) {
+    merchantTxnList.innerHTML = `<div class="panel-empty">No data yet &mdash; run a sweep or ask a question.</div>`;
+    return;
+  }
+  merchantTxnList.innerHTML = txns.map((t, i) => {
+    const settlement = t.settlement_status || "PENDING";
+    const badgeClass = settlement === "SETTLED" ? "badge-green" : settlement === "PENDING" ? "badge-amber" : "badge-red";
+    return `
+    <div class="txn-row not-actionable" style="animation-delay:${i * 40}ms">
+      <div class="txn-main">
+        <div class="txn-merchant">${escapeHtml(t.payer_name)}</div>
+        <div class="txn-sub">${t.mtxn_id} &middot; collected: ${t.collection_status}</div>
+      </div>
+      <div class="txn-side">
+        <div class="txn-amount">Rs.${Number(t.amount).toLocaleString("en-IN")}</div>
+        <span class="status-badge ${badgeClass}">${settlement}</span>
+      </div>
+    </div>`;
+  }).join("");
 }
 
 function renderMerchantTxnBox(state) {
@@ -1141,6 +1401,15 @@ function renderMerchantExceptions(events) {
     box.innerHTML = `<h3>Exceptions / Escalations</h3>${rows}`;
   }
   if (box.innerHTML !== before) flash(box);
+
+  if (merchantExceptionsBadge) {
+    if (exceptions.length) {
+      merchantExceptionsBadge.textContent = `${exceptions.length} exception${exceptions.length > 1 ? "s" : ""} needs review`;
+      merchantExceptionsBadge.classList.remove("hidden");
+    } else {
+      merchantExceptionsBadge.classList.add("hidden");
+    }
+  }
 }
 
 // --- Proactive sweep ---
@@ -1319,15 +1588,17 @@ function openMerchant() {
   document.body.classList.add("console-active");
   if (!merchantPicker.children.length) loadMerchantPicker();
   refreshInboxBadge();
+  closeAssistOverlay(merchantAssistOverlay);
 }
 
 merchantBackBtn.addEventListener("click", () => {
   hideAllWorkspaces();
   document.body.classList.remove("console-active");
   landing.classList.remove("hidden", "fade-out");
+  closeAssistOverlay(merchantAssistOverlay);
 });
 
-roleMerchantCard.addEventListener("click", openMerchant);
+roleMerchantCard.addEventListener("click", () => openLogin("merchant"));
 
 merchantResetBtn.addEventListener("click", async () => {
   if (merchantPollTimer) clearInterval(merchantPollTimer);
@@ -1343,8 +1614,33 @@ merchantResetBtn.addEventListener("click", async () => {
   setMerchantStatus("", "Idle");
   renderMerchantTxnBox({ transactions: [] });
   renderMerchantExceptions([]);
+  renderMerchantTxnList({ transactions: [] });
   document.getElementById("merchantSweepBox").innerHTML = `<h3>Reconciliation Sweep</h3><button class="preset-btn" id="merchantSweepBtn" style="margin-bottom:8px;">Run Settlement Sweep</button><div class="kv">No sweep run yet</div>`;
   document.getElementById("merchantSweepBtn").addEventListener("click", startMerchantSweep);
   if (currentMerchantId) loadMerchantBrief(currentMerchantId);
   refreshInboxBadge();
+  closeAssistOverlay(merchantAssistOverlay);
 });
+
+// ---------- Merchant home dashboard wiring ----------
+merchantAskAiFab.addEventListener("click", () => openAssistOverlay(merchantAssistOverlay));
+merchantAssistClose.addEventListener("click", () => closeAssistOverlay(merchantAssistOverlay));
+merchantExplainToggle.addEventListener("click", () => toggleExplain(merchantExplainToggle, merchantExplainWrap));
+
+qaMerchantAskAi.addEventListener("click", () => openAssistOverlay(merchantAssistOverlay));
+qaRunSweep.addEventListener("click", () => {
+  openAssistOverlay(merchantAssistOverlay);
+  startMerchantSweep();
+});
+qaGoRecon.addEventListener("click", () => openRecon());
+
+// ---------- Merchant bottom nav ----------
+const merchantNavHome = document.getElementById("merchantNavHome");
+const merchantNavAskAi = document.getElementById("merchantNavAskAi");
+const merchantNavInbox = document.getElementById("merchantNavInbox");
+const merchantNavProfile = document.getElementById("merchantNavProfile");
+
+merchantNavHome.addEventListener("click", () => closeAssistOverlay(merchantAssistOverlay));
+merchantNavAskAi.addEventListener("click", () => openAssistOverlay(merchantAssistOverlay));
+merchantNavInbox.addEventListener("click", () => openInbox());
+merchantNavProfile.addEventListener("click", () => merchantBackBtn.click());

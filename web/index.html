@@ -101,13 +101,45 @@
     </section>
   </section>
 
+  <section class="hidden" id="login">
+    <div class="login-shell">
+      <div class="login-card">
+        <button class="back-link" id="loginBackBtn" aria-label="Back to role selection">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          <span>Back to roles</span>
+        </button>
+        <div class="login-brand">
+          <div class="login-logo">&#8377;</div>
+          <h1>Dhan<span class="accent">AI</span></h1>
+        </div>
+        <div class="login-role-tag">
+          <span class="login-role-icon" id="loginRoleIcon">&#128100;</span>
+          <span id="loginRoleTitle">Login as Paytm User</span>
+        </div>
+        <p class="login-sub">Enter any details to continue &mdash; this is a demo login for the DhanAI hackathon build.</p>
+        <form id="loginForm">
+          <label class="login-field">
+            <span>Mobile number</span>
+            <input type="tel" id="loginMobile" placeholder="+91 98765 43210" autocomplete="off">
+          </label>
+          <label class="login-field">
+            <span>Password / OTP</span>
+            <input type="password" id="loginPassword" placeholder="Enter password or OTP" autocomplete="off">
+          </label>
+          <button type="submit" class="login-btn" id="loginSubmitBtn">Login</button>
+        </form>
+        <p class="login-footnote">By continuing you agree this is a simulated environment with mock data only.</p>
+      </div>
+    </div>
+  </section>
+
   <div class="app hidden" id="console">
     <header>
       <div style="display:flex; align-items:center; gap:12px;">
         <button class="back-btn" id="backBtn" aria-label="Back to role selection">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
         </button>
-        <h1>Dhan<span class="accent">AI</span> &mdash; Paytm User</h1>
+        <h1>Dhan<span class="accent">AI</span></h1>
       </div>
       <div style="display:flex; align-items:center; gap:12px;">
         <span class="status-indicator" id="statusIndicator"><span class="status-dot"></span><span id="statusText">DhanAI</span></span>
@@ -116,13 +148,38 @@
       </div>
     </header>
 
-    <div class="columns">
-      <div class="col">
-        <h2>Personal AI Brief &amp; Customer Chat</h2>
-        <div class="col-body" id="userBriefWrap" style="flex:0 0 auto; max-height:38%; overflow-y:auto;">
+    <div class="home-scroll">
+      <div class="home">
+        <div class="balance-card" id="userBriefWrap">
           <div class="panel-loading">Loading your brief</div>
         </div>
-        <div class="presets">
+
+        <div class="quick-actions">
+          <button class="qa-btn" id="qaGetHelp">
+            <span class="qa-icon">&#128172;</span><span>Get Help</span>
+          </button>
+          <button class="qa-btn" id="qaRefundHelp">
+            <span class="qa-icon">&#8617;</span><span>Refund Help</span>
+          </button>
+          <button class="qa-btn qa-cosmetic">
+            <span class="qa-icon">&#128179;</span><span>Bills</span>
+          </button>
+          <button class="qa-btn qa-cosmetic">
+            <span class="qa-icon">&#8942;</span><span>More</span>
+          </button>
+        </div>
+
+        <div class="home-section-head">
+          <h2>Recent Transactions</h2>
+        </div>
+        <div class="txn-list" id="userTxnList">
+          <div class="panel-loading">Loading transactions</div>
+        </div>
+
+        <div class="dev-link-row">
+          <button class="dev-link-btn" id="userScenarioToggle">Try demo scenarios (A&ndash;G) &rarr;</button>
+        </div>
+        <div class="presets hidden" id="userScenarioPresets">
           <button class="preset-btn" data-scenario="A">Scenario A</button>
           <button class="preset-btn" data-scenario="B">Scenario B</button>
           <button class="preset-btn" data-scenario="C">Scenario C</button>
@@ -131,28 +188,48 @@
           <button class="preset-btn" data-scenario="F">Scenario F</button>
           <button class="preset-btn" data-scenario="G">Scenario G</button>
         </div>
-        <div class="col-body" id="chatBody"></div>
+      </div>
+    </div>
+
+    <button class="fab" id="userAskAiFab" aria-label="Ask AI">
+      <span class="fab-icon">&#10022;</span><span>Ask AI</span>
+    </button>
+
+    <nav class="bottom-nav">
+      <button class="bnav-item active" id="userNavHome"><span class="bnav-icon">&#8962;</span><span>Home</span></button>
+      <button class="bnav-item" id="userNavAskAi"><span class="bnav-icon">&#10022;</span><span>Ask AI</span></button>
+      <button class="bnav-item" id="userNavInbox"><span class="bnav-icon">&#128172;</span><span>Inbox</span></button>
+      <button class="bnav-item" id="userNavProfile"><span class="bnav-icon">&#128100;</span><span>Profile</span></button>
+    </nav>
+
+    <div class="assist-overlay hidden" id="userAssistOverlay">
+      <div class="assist-panel">
+        <div class="assist-panel-head">
+          <span>DhanAI Assistant</span>
+          <button class="assist-close" id="userAssistClose" aria-label="Close">&times;</button>
+        </div>
+        <div class="assist-panel-body">
+          <div class="col-body" id="chatBody"></div>
+          <div class="explain-toggle-row">
+            <button class="explain-toggle" id="userExplainToggle">How did AI decide this? &darr;</button>
+          </div>
+          <div class="explain-wrap hidden" id="userExplainWrap">
+            <div class="col-body" id="activityBody"></div>
+          </div>
+        </div>
         <div class="chat-input">
           <textarea id="complaintInput" placeholder="Describe the issue..."></textarea>
           <button id="sendBtn">Send</button>
         </div>
       </div>
+    </div>
 
-      <div class="col">
-        <h2>Live Agent Activity</h2>
-        <div class="col-body" id="activityBody"></div>
-      </div>
-
-      <div class="col">
-        <h2>System State</h2>
-        <div class="col-body" id="stateBody">
-          <div class="state-box" id="statsBox"><h3>Session Outcomes</h3><div class="kv">No runs yet</div></div>
-          <div class="state-box" id="ticketBox"><h3>Ticket</h3><div class="kv">No ticket yet</div></div>
-          <div class="state-box" id="txnBox"><h3>Transactions</h3><div class="kv">No data</div></div>
-          <div class="state-box" id="refundBox"><h3>Refunds</h3><div class="kv">None</div></div>
-          <div class="state-box" id="smsBox"><h3>SMS Outbox</h3><div class="kv">Empty</div></div>
-        </div>
-      </div>
+    <div class="hidden" id="stateBody">
+      <div class="state-box" id="statsBox"><h3>Session Outcomes</h3><div class="kv">No runs yet</div></div>
+      <div class="state-box" id="ticketBox"><h3>Ticket</h3><div class="kv">No ticket yet</div></div>
+      <div class="state-box" id="txnBox"><h3>Transactions</h3><div class="kv">No data</div></div>
+      <div class="state-box" id="refundBox"><h3>Refunds</h3><div class="kv">None</div></div>
+      <div class="state-box" id="smsBox"><h3>SMS Outbox</h3><div class="kv">Empty</div></div>
     </div>
   </div>
 
@@ -188,33 +265,64 @@
       </div>
     </header>
 
-    <div class="columns">
-      <div class="col">
-        <h2>Business AI Brief &amp; Recovery Opportunities</h2>
-        <div class="col-body" id="businessBriefWrap" style="flex:0 0 auto; max-height:40%; overflow-y:auto;">
+    <div class="home-scroll">
+      <div class="home">
+        <div class="balance-card" id="businessBriefWrap">
           <div class="panel-loading">Loading your brief</div>
         </div>
-        <div class="presets" id="leadPresets"></div>
-        <div class="col-body" id="leadBody"></div>
-      </div>
 
-      <div class="col">
-        <h2>Live Agent Activity</h2>
-        <div class="col-body" id="salesActivityBody"></div>
-      </div>
+        <div class="brief-card impact-card" id="impactCardBox">
+          <h3>Revenue Impact</h3>
+          <div class="panel-empty">Run outreach on a lead to see impact.</div>
+        </div>
 
-      <div class="col">
-        <h2>Impact &amp; Outcome State</h2>
-        <div class="col-body" id="salesStateBody">
-          <div class="brief-card impact-card" id="impactCardBox">
-            <h3>Revenue Impact</h3>
-            <div class="panel-empty">Run outreach on a lead to see impact.</div>
+        <div class="quick-actions">
+          <button class="qa-btn" id="qaBizAskAi">
+            <span class="qa-icon">&#128172;</span><span>Ask AI</span>
+          </button>
+        </div>
+
+        <div class="home-section-head">
+          <h2>Recovery Leads</h2>
+        </div>
+        <div class="presets hidden" id="leadPresets"></div>
+        <div class="lead-list" id="leadListCards"></div>
+      </div>
+    </div>
+
+    <button class="fab" id="salesAskAiFab" aria-label="Ask AI">
+      <span class="fab-icon">&#10022;</span><span>Ask AI</span>
+    </button>
+
+    <nav class="bottom-nav">
+      <button class="bnav-item active" id="salesNavHome"><span class="bnav-icon">&#8962;</span><span>Home</span></button>
+      <button class="bnav-item" id="salesNavAskAi"><span class="bnav-icon">&#10022;</span><span>Ask AI</span></button>
+      <button class="bnav-item" id="salesNavInbox"><span class="bnav-icon">&#128172;</span><span>Inbox</span></button>
+      <button class="bnav-item" id="salesNavProfile"><span class="bnav-icon">&#128100;</span><span>Profile</span></button>
+    </nav>
+
+    <div class="assist-overlay hidden" id="salesAssistOverlay">
+      <div class="assist-panel">
+        <div class="assist-panel-head">
+          <span>DhanAI Assistant</span>
+          <button class="assist-close" id="salesAssistClose" aria-label="Close">&times;</button>
+        </div>
+        <div class="assist-panel-body">
+          <div class="col-body" id="leadBody"></div>
+          <div class="explain-toggle-row">
+            <button class="explain-toggle" id="salesExplainToggle">How did AI decide this? &darr;</button>
           </div>
-          <div class="state-box" id="leadRecordBox"><h3>Lead Status</h3><div class="kv">No lead selected</div></div>
-          <div class="state-box" id="couponBox"><h3>Coupon</h3><div class="kv">None issued</div></div>
-          <div class="state-box" id="salesSmsBox"><h3>SMS Outbox</h3><div class="kv">Empty</div></div>
+          <div class="explain-wrap hidden" id="salesExplainWrap">
+            <div class="col-body" id="salesActivityBody"></div>
+          </div>
         </div>
       </div>
+    </div>
+
+    <div class="hidden" id="salesStateBody">
+      <div class="state-box" id="leadRecordBox"><h3>Lead Status</h3><div class="kv">No lead selected</div></div>
+      <div class="state-box" id="couponBox"><h3>Coupon</h3><div class="kv">None issued</div></div>
+      <div class="state-box" id="salesSmsBox"><h3>SMS Outbox</h3><div class="kv">Empty</div></div>
     </div>
   </div>
 
@@ -274,37 +382,77 @@
       </div>
     </header>
 
-    <div class="columns">
-      <div class="col">
-        <h2>Merchant AI Brief &amp; Query</h2>
+    <div class="home-scroll">
+      <div class="home">
         <div class="merchant-picker" id="merchantPicker"></div>
-        <div class="col-body" id="merchantBriefWrap" style="flex:0 0 auto; max-height:34%; overflow-y:auto;">
+
+        <div class="balance-card" id="merchantBriefWrap">
           <div class="panel-empty">Select a merchant above to load their brief.</div>
         </div>
-        <div class="col-body" id="merchantChatBody"></div>
+
+        <div class="quick-actions">
+          <button class="qa-btn" id="qaRunSweep">
+            <span class="qa-icon">&#128260;</span><span>Run Settlement Sweep</span>
+          </button>
+          <button class="qa-btn" id="qaMerchantAskAi">
+            <span class="qa-icon">&#128172;</span><span>Ask AI</span>
+          </button>
+          <button class="qa-btn" id="qaGoRecon">
+            <span class="qa-icon">&#9878;</span><span>Platform Recon</span>
+          </button>
+        </div>
+
+        <div class="home-section-head">
+          <h2>Today's Collections &amp; Settlements</h2>
+          <span class="exceptions-badge hidden" id="merchantExceptionsBadge">0 exceptions</span>
+        </div>
+        <div class="txn-list" id="merchantTxnList">
+          <div class="panel-empty">No data</div>
+        </div>
+      </div>
+    </div>
+
+    <button class="fab" id="merchantAskAiFab" aria-label="Ask AI">
+      <span class="fab-icon">&#10022;</span><span>Ask AI</span>
+    </button>
+
+    <nav class="bottom-nav">
+      <button class="bnav-item active" id="merchantNavHome"><span class="bnav-icon">&#8962;</span><span>Home</span></button>
+      <button class="bnav-item" id="merchantNavAskAi"><span class="bnav-icon">&#10022;</span><span>Ask AI</span></button>
+      <button class="bnav-item" id="merchantNavInbox"><span class="bnav-icon">&#128172;</span><span>Inbox</span></button>
+      <button class="bnav-item" id="merchantNavProfile"><span class="bnav-icon">&#128100;</span><span>Profile</span></button>
+    </nav>
+
+    <div class="assist-overlay hidden" id="merchantAssistOverlay">
+      <div class="assist-panel">
+        <div class="assist-panel-head">
+          <span>DhanAI Assistant</span>
+          <button class="assist-close" id="merchantAssistClose" aria-label="Close">&times;</button>
+        </div>
+        <div class="assist-panel-body">
+          <div class="col-body" id="merchantChatBody"></div>
+          <div class="explain-toggle-row">
+            <button class="explain-toggle" id="merchantExplainToggle">How did AI decide this? &darr;</button>
+          </div>
+          <div class="explain-wrap hidden" id="merchantExplainWrap">
+            <div class="col-body" id="merchantActivityBody"></div>
+          </div>
+        </div>
         <div class="merchant-query-input">
           <textarea id="merchantQueryInput" placeholder="e.g. Mujhe kal ke Rs.5600 payment ka settlement nahi mila..."></textarea>
           <button id="merchantQuerySendBtn">Ask</button>
         </div>
       </div>
+    </div>
 
-      <div class="col">
-        <h2>Live Agent Activity</h2>
-        <div class="col-body" id="merchantActivityBody"></div>
+    <div class="hidden" id="merchantStateBody">
+      <div class="state-box" id="merchantSweepBox">
+        <h3>Reconciliation Sweep</h3>
+        <button class="preset-btn" id="merchantSweepBtn" style="margin-bottom:8px;">Run Settlement Sweep</button>
+        <div class="kv">No sweep run yet</div>
       </div>
-
-      <div class="col">
-        <h2>Collections, Settlements &amp; Exceptions</h2>
-        <div class="col-body" id="merchantStateBody">
-          <div class="state-box" id="merchantSweepBox">
-            <h3>Reconciliation Sweep</h3>
-            <button class="preset-btn" id="merchantSweepBtn" style="margin-bottom:8px;">Run Settlement Sweep</button>
-            <div class="kv">No sweep run yet</div>
-          </div>
-          <div class="state-box" id="merchantTxnBox"><h3>Today's Collections &amp; Pending Settlements</h3><div class="kv">No data</div></div>
-          <div class="state-box" id="merchantExceptionsBox"><h3>Exceptions / Escalations</h3><div class="kv">None</div></div>
-        </div>
-      </div>
+      <div class="state-box" id="merchantTxnBox"><h3>Today's Collections &amp; Pending Settlements</h3><div class="kv">No data</div></div>
+      <div class="state-box" id="merchantExceptionsBox"><h3>Exceptions / Escalations</h3><div class="kv">None</div></div>
     </div>
   </div>
 
