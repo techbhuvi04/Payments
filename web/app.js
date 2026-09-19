@@ -1342,6 +1342,7 @@ document.querySelectorAll(".help-chip[data-help-prompt]").forEach(chip => {
 resetBtn.addEventListener("click", async () => {
   if (pollTimer) clearInterval(pollTimer);
   await fetch("/api/reset", { method: "POST" });
+  if (typeof updateImpactMetrics === 'function') updateImpactMetrics();
   chatBody.innerHTML = "";
   activityBody.innerHTML = "";
   typingCardRefs.typingCardEl = null;
@@ -1425,6 +1426,7 @@ function openConsole() {
 async function backToLanding() {
   if (pollTimer) clearInterval(pollTimer);
   await fetch("/api/reset", { method: "POST" });
+  if (typeof updateImpactMetrics === 'function') updateImpactMetrics();
   hideAllWorkspaces();
   consoleView.classList.remove("fade-in", "show");
   document.body.classList.remove("console-active");
@@ -1934,6 +1936,7 @@ salesNavProfile.addEventListener("click", () => salesBackBtn.click());
 salesResetBtn.addEventListener("click", async () => {
   if (salesPollTimer) clearInterval(salesPollTimer);
   await fetch("/api/reset", { method: "POST" });
+  if (typeof updateImpactMetrics === 'function') updateImpactMetrics();
   leadBody.innerHTML = "";
   salesActivityBody.innerHTML = "";
   typingCardRefs.salesTypingCardEl = null;
@@ -2049,6 +2052,7 @@ runSweepBtn.addEventListener("click", startReconSweep);
 reconResetBtn.addEventListener("click", async () => {
   if (reconPollTimer) clearInterval(reconPollTimer);
   await fetch("/api/reset", { method: "POST" });
+  if (typeof updateImpactMetrics === 'function') updateImpactMetrics();
   reconActivityBody.innerHTML = "";
   typingCardRefs.reconTypingCardEl = null;
   reconRenderedCount = 0;
@@ -2513,6 +2517,7 @@ merchantResetBtn.addEventListener("click", async () => {
   if (merchantPollTimer) clearInterval(merchantPollTimer);
   if (merchantSweepPollTimer) clearInterval(merchantSweepPollTimer);
   await fetch("/api/reset", { method: "POST" });
+  if (typeof updateImpactMetrics === 'function') updateImpactMetrics();
   merchantChatBody.innerHTML = "";
   merchantActivityBody.innerHTML = "";
   typingCardRefs.merchantTypingCardEl = null;
@@ -2571,18 +2576,22 @@ merchantNavProfile.addEventListener("click", () => merchantBackBtn.click());
 // ---------- SCAM SHIELD ----------
 (function scamShieldInit() {
   const openBtn = document.getElementById("scamShieldOpenBtn");
+  const openBtnDashboard = document.getElementById("scamShieldOpenBtnDashboard");
   const modal = document.getElementById("scamShieldModal");
   const closeBtn = document.getElementById("scamShieldCloseBtn");
   const checkBtn = document.getElementById("scamShieldCheckBtn");
   const input = document.getElementById("scamShieldInput");
   const resultEl = document.getElementById("scamShieldResult");
-  if (!openBtn || !modal) return;
+  if (!modal) return;
 
-  openBtn.addEventListener("click", () => {
+  const openHandler = () => {
     modal.classList.remove("hidden");
     resultEl.innerHTML = "";
     input.value = "";
-  });
+  };
+
+  if (openBtn) openBtn.addEventListener("click", openHandler);
+  if (openBtnDashboard) openBtnDashboard.addEventListener("click", openHandler);
   closeBtn.addEventListener("click", () => modal.classList.add("hidden"));
   modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.add("hidden"); });
 
@@ -2689,3 +2698,4 @@ async function updateImpactMetrics() {
   } catch(e) {}
 }
 updateImpactMetrics();
+setInterval(updateImpactMetrics, 10000);
