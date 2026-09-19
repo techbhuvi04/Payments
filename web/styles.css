@@ -73,6 +73,8 @@ header .sub { color: var(--text-mute); font-size: 12px; }
 .card.guardrail_block { border-left-color: var(--danger); background: var(--danger-bg); }
 .card.escalation { border-left-color: var(--warn); background: var(--warn-bg); }
 .card.done { border-left-color: var(--ok); background: var(--ok-bg); }
+.card.txn_done { border-left-color: var(--brand-navy); background: var(--surface-2); font-size: 12px; }
+.card.txn_done .card-tool { color: var(--brand-navy); text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; }
 
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .card-tool { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--brand-navy); }
@@ -147,6 +149,24 @@ header .sub { color: var(--text-mute); font-size: 12px; }
 
 .back-btn { background: transparent; border: none; color: var(--text-mute); cursor: pointer; display: flex; align-items: center; padding: 4px; border-radius: 6px; }
 .back-btn:hover { color: var(--brand-cyan-dark); }
+
+/* HUMAN ESCALATION INBOX */
+.inbox-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 4px; margin-left: 6px; background: var(--danger); color: #fff; font-size: 10px; font-weight: 700; border-radius: 999px; }
+.inbox-body { max-width: 900px; margin: 0 auto; padding: 24px 20px; overflow-y: auto; height: calc(100vh - 56px); }
+.inbox-empty { text-align: center; color: var(--text-mute); font-size: 14px; padding: 60px 0; }
+.esc-card { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--warn); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: 18px 20px; margin-bottom: 16px; opacity: 0; transform: translateY(10px); animation: card-in .32s var(--ease) forwards; }
+.esc-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.esc-card-title { font-size: 15px; font-weight: 700; color: var(--brand-navy); }
+.esc-card-sub { font-size: 12px; color: var(--text-mute); margin-top: 2px; }
+.esc-field { margin-bottom: 10px; }
+.esc-field-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-mute); font-weight: 600; margin-bottom: 3px; }
+.esc-field-value { font-size: 13px; line-height: 1.5; }
+.esc-txns { font-family: var(--mono); font-size: 12px; background: var(--surface-2); border-radius: 8px; padding: 8px 10px; }
+.esc-resolve { display: flex; gap: 8px; margin-top: 12px; }
+.esc-resolve input { flex: 1; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px; font-family: inherit; }
+.esc-resolve button { background: var(--ok); color: #fff; border: none; border-radius: var(--radius-sm); padding: 0 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.esc-resolve button:hover { opacity: .9; }
+.esc-resolve button:disabled { opacity: .5; cursor: not-allowed; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

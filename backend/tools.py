@@ -120,8 +120,34 @@ class GuardrailBlocked(Exception):
     pass
 
 
+REQUIRED_ARGS = {s["name"]: s["input_schema"]["required"] for s in TOOL_SCHEMAS}
+
+
+def _require_args(name: str, tool_input: dict) -> None:
+    """Guard against the LLM omitting required args, which would otherwise raise a raw KeyError."""
+    missing = [a for a in REQUIRED_ARGS.get(name, []) if a not in tool_input]
+    if missing:
+        raise GuardrailBlocked(
+            f"Tool call blocked: {name} is missing required argument(s) {missing}. "
+            "Re-check the data you have and either retry with complete arguments or escalate."
+        )
+
+
+def _require_transaction(txn_id: str) -> dict:
+    """Guard against the LLM hallucinating a txn_id that doesn't exist in the transaction DB."""
+    txn = txn_db.get_transaction(txn_id)
+    if txn is None:
+        raise GuardrailBlocked(
+            f"Tool call blocked: txn_id '{txn_id}' does not exist. Do not guess transaction IDs - "
+            "use the ones returned by get_customer_transactions, or escalate if none match."
+        )
+    return txn
+
+
 def execute_tool(name: str, tool_input: dict) -> dict:
     """Dispatch a tool call, enforce guardrails, and write state-changing calls to audit log."""
+    _require_args(name, tool_input)
+
     if name == "get_customer_transactions":
         result = txn_db.get_customer_transactions(
             tool_input["customer_id"], tool_input.get("days_back", 7)
@@ -135,12 +161,17 @@ def execute_tool(name: str, tool_input: dict) -> dict:
         return _initiate_refund_guarded(**tool_input)
 
     if name == "force_settlement":
+        _require_transaction(tool_input["txn_id"])
         result = refund_api.force_settlement(tool_input["txn_id"])
         txn_db.set_settlement_status(tool_input["txn_id"], "SETTLED")
         log_event("agent", "force_settlement", {"txn_id": tool_input["txn_id"], "result": result})
         return result
 
     if name == "update_ticket":
+        if tool_input["ticket_id"] not in crm.TICKETS:
+            raise GuardrailBlocked(
+                f"Tool call blocked: ticket_id '{tool_input['ticket_id']}' does not exist."
+            )
         result = crm.update_ticket(**tool_input)
         log_event("agent", "update_ticket", {"input": tool_input, "result": result})
         return result
@@ -151,9 +182,17 @@ def execute_tool(name: str, tool_input: dict) -> dict:
         return result
 
     if name == "escalate_to_human":
+        if tool_input["ticket_id"] not in crm.TICKETS:
+            raise GuardrailBlocked(
+                f"Tool call blocked: ticket_id '{tool_input['ticket_id']}' does not exist."
+            )
         crm.update_ticket(
             tool_input["ticket_id"], "ESCALATED",
             f"ESCALATED: {tool_input['reason']} | Suggested action: {tool_input['suggested_action']}",
+        )
+        crm.set_escalation(
+            tool_input["ticket_id"], tool_input["reason"],
+            tool_input["context_summary"], tool_input["suggested_action"],
         )
         log_event("agent", "escalate_to_human", {"input": tool_input})
         return {"status": "ESCALATED", "ticket_id": tool_input["ticket_id"]}
@@ -162,6 +201,8 @@ def execute_tool(name: str, tool_input: dict) -> dict:
 
 
 def _initiate_refund_guarded(txn_id: str, amount: float, reason: str) -> dict:
+    _require_transaction(txn_id)
+
     if amount > REFUND_HARD_LIMIT:
         log_event("guardrail", "refund_blocked_amount_limit", {"txn_id": txn_id, "amount": amount})
         raise GuardrailBlocked(

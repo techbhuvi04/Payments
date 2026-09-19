@@ -20,6 +20,8 @@
       <p class="subhead">A hand-rolled agent that reads a complaint, investigates the transaction, and takes action — refund, settlement, or escalation — in seconds.</p>
       <div class="hero-actions">
         <button class="btn-primary" id="openConsoleBtn">Open Customer Service</button>
+        <button class="btn-ghost" id="openSalesBtn">Open Sales Teammate</button>
+        <button class="btn-ghost" id="openReconBtn">Open Reconciliation</button>
         <button class="btn-ghost" id="learnMoreBtn">Learn more</button>
       </div>
     </section>
@@ -91,6 +93,9 @@
       </div>
       <div style="display:flex; align-items:center; gap:12px;">
         <span class="status-indicator" id="statusIndicator"><span class="status-dot"></span><span id="statusText">DhanAi</span></span>
+        <button class="reset-btn" id="goSalesBtn">Sales Teammate</button>
+        <button class="reset-btn" id="goReconBtn">Reconciliation</button>
+        <button class="reset-btn" id="humanInboxBtn">Human Inbox <span id="inboxBadge" class="inbox-badge hidden">0</span></button>
         <button class="reset-btn" id="resetBtn">Reset all state</button>
       </div>
     </header>
@@ -103,6 +108,9 @@
           <button class="preset-btn" data-scenario="B">Scenario B</button>
           <button class="preset-btn" data-scenario="C">Scenario C</button>
           <button class="preset-btn" data-scenario="D">Scenario D</button>
+          <button class="preset-btn" data-scenario="E">Scenario E</button>
+          <button class="preset-btn" data-scenario="F">Scenario F</button>
+          <button class="preset-btn" data-scenario="G">Scenario G</button>
         </div>
         <div class="col-body" id="chatBody"></div>
         <div class="chat-input">
@@ -119,10 +127,106 @@
       <div class="col">
         <h2>System State</h2>
         <div class="col-body" id="stateBody">
+          <div class="state-box" id="statsBox"><h3>Session Outcomes</h3><div class="kv">No runs yet</div></div>
           <div class="state-box" id="ticketBox"><h3>Ticket</h3><div class="kv">No ticket yet</div></div>
           <div class="state-box" id="txnBox"><h3>Transactions</h3><div class="kv">No data</div></div>
           <div class="state-box" id="refundBox"><h3>Refunds</h3><div class="kv">None</div></div>
           <div class="state-box" id="smsBox"><h3>SMS Outbox</h3><div class="kv">Empty</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app hidden" id="inbox">
+    <header>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button class="back-btn" id="inboxBackBtn" aria-label="Back to console">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        </button>
+        <h1>Human <span class="accent">Escalation</span> Queue</h1>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="status-indicator" id="inboxStatusIndicator"><span class="status-dot"></span><span>Agent hands off here</span></span>
+      </div>
+    </header>
+    <div class="inbox-body" id="inboxBody">
+      <div class="inbox-empty">Loading escalation queue...</div>
+    </div>
+  </div>
+
+  <div class="app hidden" id="sales">
+    <header>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button class="back-btn" id="salesBackBtn" aria-label="Back">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        </button>
+        <h1>Paytm <span class="accent">Sales</span> Teammate</h1>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="status-indicator" id="salesStatusIndicator"><span class="status-dot"></span><span id="salesStatusText">DhanAi</span></span>
+        <button class="reset-btn" id="salesResetBtn">Reset all state</button>
+      </div>
+    </header>
+
+    <div class="columns">
+      <div class="col">
+        <h2>Abandoned / Failed Leads</h2>
+        <div class="presets" id="leadPresets"></div>
+        <div class="col-body" id="leadBody"></div>
+      </div>
+
+      <div class="col">
+        <h2>Live Agent Activity</h2>
+        <div class="col-body" id="salesActivityBody"></div>
+      </div>
+
+      <div class="col">
+        <h2>Outcome State</h2>
+        <div class="col-body" id="salesStateBody">
+          <div class="state-box" id="salesStatsBox"><h3>Session Outcomes</h3><div class="kv">No runs yet</div></div>
+          <div class="state-box" id="leadRecordBox"><h3>Lead Status</h3><div class="kv">No lead selected</div></div>
+          <div class="state-box" id="couponBox"><h3>Coupon</h3><div class="kv">None issued</div></div>
+          <div class="state-box" id="salesSmsBox"><h3>SMS Outbox</h3><div class="kv">Empty</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app hidden" id="recon">
+    <header>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button class="back-btn" id="reconBackBtn" aria-label="Back">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        </button>
+        <h1>Paytm <span class="accent">Reconciliation</span> Teammate</h1>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="status-indicator" id="reconStatusIndicator"><span class="status-dot"></span><span id="reconStatusText">DhanAi</span></span>
+        <button class="reset-btn" id="reconResetBtn">Reset all state</button>
+      </div>
+    </header>
+
+    <div class="columns">
+      <div class="col">
+        <h2>Sweep</h2>
+        <div class="presets">
+          <button class="preset-btn" id="runSweepBtn">Run Reconciliation Sweep</button>
+        </div>
+        <div class="col-body" id="reconIntro">
+          <div class="bubble agent">Runs proactively over recent transactions, comparing internal records against the bank's settlement status &mdash; no customer complaint needed. Catches silent mismatches before anyone notices.</div>
+        </div>
+      </div>
+
+      <div class="col">
+        <h2>Live Agent Activity</h2>
+        <div class="col-body" id="reconActivityBody"></div>
+      </div>
+
+      <div class="col">
+        <h2>Sweep Results</h2>
+        <div class="col-body" id="reconStateBody">
+          <div class="state-box" id="reconSummaryBox"><h3>Last Sweep</h3><div class="kv">No sweep run yet</div></div>
+          <div class="state-box" id="reconTxnBox"><h3>Transactions Audited</h3><div class="kv">No data</div></div>
         </div>
       </div>
     </div>

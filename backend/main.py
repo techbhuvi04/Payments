@@ -27,12 +27,27 @@ SCENARIOS = {
         "ticket_id": "TICKET_D",
         "complaint": "I paid 47000 to Singh Jewellers, money got deducted but transaction failed. This is the second time this is happening.",
     },
+    "E": {
+        "customer_id": "CUST_E",
+        "ticket_id": "TICKET_E",
+        "complaint": "I paid 640 to Reddy Medical Store 4 hours ago, payment failed but amount was deducted from my account.",
+    },
+    "F": {
+        "customer_id": "CUST_F",
+        "ticket_id": "TICKET_F",
+        "complaint": "I paid 3200 to Iyer Textiles 10 hours ago, status still shows pending, please check.",
+    },
+    "G": {
+        "customer_id": "CUST_G",
+        "ticket_id": "TICKET_G",
+        "complaint": "I paid 31000 to Malhotra Furnishings, transaction failed but money was debited from my account.",
+    },
 }
 
 
 def main():
     parser = argparse.ArgumentParser(description="Run the autonomous refund-dispute agent.")
-    parser.add_argument("--scenario", choices=["A", "B", "C", "D"], help="Replay a seeded demo scenario.")
+    parser.add_argument("--scenario", choices=list(SCENARIOS.keys()), help="Replay a seeded demo scenario.")
     parser.add_argument("--customer_id", help="Custom customer_id (overrides --scenario).")
     parser.add_argument("--ticket_id", help="Custom ticket_id (overrides --scenario).")
     parser.add_argument("--complaint", help="Custom complaint text (overrides --scenario).")
