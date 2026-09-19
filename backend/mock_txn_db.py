@@ -176,7 +176,53 @@ TRANSACTIONS = {
         "settlement_status": "SETTLED",
         "refund_id": None,
     },
+
+    # --- Cosmetic history filler: plain successful/settled transactions so each demo
+    # customer's dashboard shows a realistic transaction history, not just their one
+    # scenario txn. These never appear in any scenario's expected agent behavior. ---
 }
+
+
+def _make_filler(customer_id: str, txn_id_prefix: str, entries: list[tuple]) -> None:
+    """entries: list of (merchant_name, amount, days_ago, hours_ago) tuples, all SUCCESS/SETTLED."""
+    for i, (merchant, amount, days_ago, hours_ago) in enumerate(entries, start=1):
+        txn_id = f"{txn_id_prefix}{i:02d}"
+        TRANSACTIONS[txn_id] = {
+            "txn_id": txn_id,
+            "customer_id": customer_id,
+            "merchant_name": merchant,
+            "amount": amount,
+            "timestamp": NOW - timedelta(days=days_ago, hours=hours_ago),
+            "status": "SUCCESS",
+            "bank_ref": f"BANKREF_{txn_id}",
+            "settlement_status": "SETTLED",
+            "refund_id": None,
+        }
+
+
+_make_filler("CUST_A", "TXNFILL_A", [
+    ("Zomato", 480.0, 2, 3), ("Uber", 220.0, 3, 8), ("Amazon", 1899.0, 6, 0),
+    ("BSES Electricity Bill", 2150.0, 9, 0), ("Big Bazaar", 940.0, 12, 0),
+])
+_make_filler("CUST_B", "TXNFILL_B", [
+    ("Swiggy", 360.0, 1, 5), ("Airtel Recharge", 299.0, 4, 0), ("Myntra", 1450.0, 8, 0),
+    ("IRCTC", 890.0, 11, 0),
+])
+_make_filler("CUST_C", "TXNFILL_C", [
+    ("Reliance Digital", 3200.0, 2, 0), ("BookMyShow", 600.0, 5, 0), ("Domino's Pizza", 540.0, 8, 4),
+])
+_make_filler("CUST_D", "TXNFILL_D", [
+    ("Croma", 5400.0, 3, 0), ("Netflix", 649.0, 6, 0), ("Jio Recharge", 399.0, 10, 0),
+])
+_make_filler("CUST_E", "TXNFILL_E", [
+    ("1mg Pharmacy", 780.0, 1, 2), ("Ola Cabs", 310.0, 5, 0), ("D-Mart", 2100.0, 9, 0),
+])
+_make_filler("CUST_F", "TXNFILL_F", [
+    ("Flipkart", 2499.0, 2, 0), ("Zepto", 420.0, 4, 6), ("LIC Premium", 5000.0, 12, 0),
+])
+_make_filler("CUST_G", "TXNFILL_G", [
+    ("Tata Sky Recharge", 599.0, 2, 0), ("Nykaa", 1250.0, 6, 0), ("PVR Cinemas", 800.0, 9, 3),
+])
 
 
 def get_customer_transactions(customer_id: str, days_back: int = 7) -> list[dict]:

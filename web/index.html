@@ -7,105 +7,229 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- ============ SVG ICON SPRITE (inline defs, referenced via <use>) ============ -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="ic-user" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+      <symbol id="ic-shop" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 9l1-5h16l1 5M3 9a2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0M4 9v10h16V9"/></symbol>
+      <symbol id="ic-growth" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 17l6-6 4 4 8-8M21 7h-5v5"/></symbol>
+      <symbol id="ic-home" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 11l9-8 9 8M5 10v10h14V10"/></symbol>
+      <symbol id="ic-activity" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+      <symbol id="ic-insights" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 20V10M12 20V4M20 20v-7"/></symbol>
+      <symbol id="ic-profile" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+      <symbol id="ic-sparkle" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2l1.8 5.6L19 9l-5.2 1.4L12 16l-1.8-5.6L5 9l5.2-1.4L12 2z"/></symbol>
+      <symbol id="ic-bell" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></symbol>
+      <symbol id="ic-menu" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M3 6h18M3 12h18M3 18h18"/></symbol>
+      <symbol id="ic-chevron-left" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="ic-send" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></symbol>
+      <symbol id="ic-mic" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></symbol>
+      <symbol id="ic-paperclip" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M21.4 11.1l-9.2 9.2a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 0 1 5 5l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></symbol>
+      <symbol id="ic-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M21 15l-5-5L5 21"/></symbol>
+      <symbol id="ic-pdf" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><text x="7" y="18" font-size="7" fill="currentColor" font-weight="700">PDF</text></symbol>
+      <symbol id="ic-doc" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" stroke-width="1.6"/><line x1="8" y1="17" x2="13" y2="17" stroke="currentColor" stroke-width="1.6"/></symbol>
+      <symbol id="ic-close" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M18 6L6 18M6 6l12 12"/></symbol>
+      <symbol id="ic-kebab" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="19" r="1.6" fill="currentColor"/></symbol>
+      <symbol id="ic-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="ic-shield" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/></symbol>
+      <symbol id="ic-send-money" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></symbol>
+      <symbol id="ic-scan" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 7V4a1 1 0 0 1 1-1h3M17 3h3a1 1 0 0 1 1 1v3M21 17v3a1 1 0 0 1-1 1h-3M7 21H4a1 1 0 0 1-1-1v-3M7 12h10"/></symbol>
+      <symbol id="ic-recharge" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></symbol>
+      <symbol id="ic-bills" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 2h16v20l-3-2-3 2-3-2-3 2-3-2-1 2z"/><line x1="8" y1="7" x2="16" y2="7" stroke="currentColor" stroke-width="1.6"/><line x1="8" y1="11" x2="16" y2="11" stroke="currentColor" stroke-width="1.6"/></symbol>
+      <symbol id="ic-history" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 3v5h5"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><polyline points="12 7 12 12 15 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="ic-sweep" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></symbol>
+      <symbol id="ic-download" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+      <symbol id="ic-device" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+      <symbol id="ic-dispute" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M10.3 2.3L2.3 16.5a1 1 0 0 0 .9 1.5h17.6a1 1 0 0 0 .9-1.5L13.7 2.3a1 1 0 0 0-1.7 0zM12 9v4M12 17h.01"/></symbol>
+      <symbol id="ic-recover" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7 14l4-4 3 3 5-5"/></symbol>
+      <symbol id="ic-offer" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M20.6 12.7L12.7 20.6a2 2 0 0 1-2.8 0l-8.5-8.5V3h9.1l8.5 8.5a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.4" fill="currentColor"/></symbol>
+      <symbol id="ic-reminder" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></symbol>
+      <symbol id="ic-report" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 19V5a2 2 0 0 1 2-2h8l6 6v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path fill="none" stroke="currentColor" stroke-width="2" d="M14 3v6h6"/></symbol>
+      <symbol id="ic-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path fill="none" stroke="currentColor" stroke-width="2" d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.6 1z"/></symbol>
+      <symbol id="ic-swap" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/></symbol>
+      <symbol id="ic-reset" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M1 4v6h6M23 20v-6h-6"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3.5 9A9 9 0 0 1 20 6.3L23 10M20.5 15a9 9 0 0 1-16.5 2.7L1 14"/></symbol>
+      <symbol id="ic-txn" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path fill="none" stroke="currentColor" stroke-width="2" d="M2 10h20"/></symbol>
+      <symbol id="ic-wallet" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 7a2 2 0 0 1 2-2h13a1 1 0 0 1 1 1v3M3 7v11a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4M3 7l4-4h9"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M16 13h4v4h-4a2 2 0 0 1 0-4z"/></symbol>
+      <symbol id="ic-arrow-right" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></symbol>
+      <symbol id="ic-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><polyline points="8 12.5 10.8 15.3 16 9.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="ic-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="ic-bolt" viewBox="0 0 24 24"><polygon points="13 2 3 14 11 14 9 22 21 10 13 10 13 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+      <symbol id="ic-message" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></symbol>
+    </defs>
+  </svg>
+
+  <!-- ============ LANDING ============ -->
   <section id="landing">
-    <header>
-      <div style="display:flex; align-items:center; gap:12px;">
-        <h1>Dhan<span class="accent">AI</span></h1>
+    <header class="landing-nav">
+      <div class="landing-nav-inner">
+        <div class="landing-wordmark">Dhan<span class="accent">AI</span></div>
+        <nav class="landing-nav-links" aria-label="Page sections">
+          <a href="#how-it-works">How it works</a>
+          <a href="#safety">Safety</a>
+          <a href="#workspace-select">Choose workspace</a>
+        </nav>
+        <div class="landing-nav-right">
+          <span class="landing-pill">Autonomous Paytm teammate</span>
+          <button class="landing-cta-btn" id="openDhanAiBtn">Open DhanAI</button>
+        </div>
       </div>
-      <span class="status-indicator resolved"><span class="status-dot"></span><span>Your Personalized Paytm Teammate</span></span>
     </header>
 
-    <section class="hero">
-      <h1>One teammate. Three roles. Real actions, not just answers.</h1>
-      <p class="subhead">DhanAI reads context, decides, and acts — refunds, settlements, coupons, escalations — instead of just chatting about them. Pick how you want to work with it.</p>
-    </section>
+    <section class="hero-section">
+      <div class="hero-inner">
+        <div class="hero-copy">
+          <span class="hero-badge">Built for India's payment economy</span>
+          <h1>Your Paytm teammate<br>that does the work.</h1>
+          <p class="hero-sub">DhanAI understands the problem, checks the right systems, and safely takes action&mdash;across payments, settlements, and business growth.</p>
+          <div class="hero-actions">
+            <button class="btn-primary-lg" id="heroChooseWorkspaceBtn">Choose your workspace</button>
+            <button class="btn-secondary-lg" id="heroWatchDemoBtn">Watch it resolve a payment</button>
+          </div>
+          <ul class="trust-points">
+            <li><svg><use href="#ic-shield"/></svg><span>Code-enforced guardrails</span></li>
+            <li><svg><use href="#ic-user"/></svg><span>Human handoff for risky cases</span></li>
+            <li><svg><use href="#ic-history"/></svg><span>Full audit trail</span></li>
+          </ul>
+        </div>
 
-    <section class="role-select">
-      <p class="role-select-title">Choose your workspace</p>
-      <div class="role-cards">
-        <button class="role-card role-user" id="roleUserCard">
-          <div class="role-icon">&#128100;</div>
-          <h3>Paytm User</h3>
-          <p>Personal finance &amp; payment support. Get a daily brief, chat about a failed payment or refund, and watch the agent investigate and resolve it with full explainability.</p>
-          <span class="role-card-action">Open workspace &rarr;</span>
-        </button>
-        <button class="role-card role-merchant" id="roleMerchantCard">
-          <div class="role-icon">&#127974;</div>
-          <h3>Merchant</h3>
-          <p>Collections &amp; settlement operations. Run a proactive reconciliation sweep, ask about a specific settlement in your own words, and see exceptions before customers ever complain.</p>
-          <span class="role-card-action">Open workspace &rarr;</span>
-        </button>
-        <button class="role-card role-business" id="roleBusinessCard">
-          <div class="role-icon">&#128200;</div>
-          <h3>Business Owner</h3>
-          <p>Growth &amp; revenue operations. See recoverable checkout leads, let the agent run guardrailed win-back outreach, and track revenue recovered vs. discounts protected.</p>
-          <span class="role-card-action">Open workspace &rarr;</span>
-        </button>
-      </div>
-    </section>
-
-    <section class="reveal comparison">
-      <div class="compare-card compare-muted">
-        <h3>Traditional chatbot</h3>
-        <div class="compare-step"><span class="dot dot-grey"></span> Reads the complaint, matches a script</div>
-        <div class="compare-step"><span class="dot dot-grey"></span> Asks the customer for details it already has</div>
-        <div class="compare-step"><span class="dot dot-grey"></span> Cannot touch bank or refund systems</div>
-        <div class="compare-step"><span class="dot dot-grey"></span> Hands off to a human, 24-48h later</div>
-      </div>
-      <div class="compare-card compare-highlight">
-        <span class="pill-badge">This build</span>
-        <h3>Autonomous teammate</h3>
-        <div class="compare-step"><span class="check">&#10003;</span> Parses amount, merchant, date, issue type</div>
-        <div class="compare-step"><span class="check">&#10003;</span> Looks up transactions and bank settlement itself</div>
-        <div class="compare-step"><span class="check">&#10003;</span> Executes refund, settlement, or escalation directly</div>
-        <div class="compare-step"><span class="check">&#10003;</span> Resolves or escalates with full context in seconds</div>
+        <div class="hero-demo">
+          <div class="demo-panel" id="demoPanel">
+            <div class="demo-panel-head">
+              <span class="demo-avatar" aria-hidden="true"><svg width="18" height="18"><use href="#ic-sparkle"/></svg></span>
+              <span class="demo-panel-title">DhanAI in action</span>
+            </div>
+            <div class="demo-bubble-user">&#8377;2,400 deducted but merchant didn&rsquo;t receive it.</div>
+            <ul class="demo-steps" id="demoSteps">
+              <li class="demo-step" data-step="0"><span class="demo-step-check"><svg width="12" height="12"><use href="#ic-check"/></svg></span><span>Checking transaction</span></li>
+              <li class="demo-step" data-step="1"><span class="demo-step-check"><svg width="12" height="12"><use href="#ic-check"/></svg></span><span>Verifying bank settlement</span></li>
+              <li class="demo-step" data-step="2"><span class="demo-step-check"><svg width="12" height="12"><use href="#ic-check"/></svg></span><span>Refund eligibility confirmed</span></li>
+              <li class="demo-step" data-step="3"><span class="demo-step-check"><svg width="12" height="12"><use href="#ic-check"/></svg></span><span>Refund initiated</span></li>
+            </ul>
+            <div class="demo-result-card">
+              <div class="demo-result-title">&#8377;2,400 refund initiated</div>
+              <div class="demo-result-sub">Expected in 2-4 hours</div>
+            </div>
+            <span class="demo-confidence-pill"><svg width="12" height="12"><use href="#ic-check-circle"/></svg>Low risk &middot; Auto-action approved</span>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section class="reveal capabilities">
-      <div class="cap-card">
-        <h4>7 system tools</h4>
-        <p>Transactions, bank settlement, refunds, force-settlement, CRM, SMS, and escalation — all callable by the agent.</p>
-      </div>
-      <div class="cap-card">
-        <h4>Code-level guardrails</h4>
-        <p>Refund limits and duplicate-refund checks are enforced in code, not left to the model's judgment.</p>
-      </div>
-      <div class="cap-card">
-        <h4>Calibrated escalation</h4>
-        <p>High amounts, repeat complaints, or ambiguous cases are hedged to a human with full context, not guessed at.</p>
-      </div>
-      <div class="cap-card">
-        <h4>Full audit trail</h4>
-        <p>Every tool call, guardrail block, and decision is logged in order, before the response is even returned.</p>
+    <section class="workspace-select" id="workspace-select">
+      <div class="section-inner">
+        <h2 class="section-heading">One AI, tailored to your role</h2>
+        <p class="section-sub">Choose the workspace that matches what you need DhanAI to solve.</p>
+        <div class="role-cards">
+          <button class="role-card role-user" id="roleUserCard">
+            <div class="role-icon"><svg><use href="#ic-wallet"/></svg></div>
+            <h3>Paytm User</h3>
+            <p>Protect and manage your money</p>
+            <p class="role-card-copy">Payment help, refund tracking, fraud support, and personal insights.</p>
+            <div class="role-mini-actions">
+              <span class="role-mini-chip">Check refund</span>
+              <span class="role-mini-chip">Report payment issue</span>
+            </div>
+            <span class="role-card-action">Open workspace <svg width="14" height="14"><use href="#ic-arrow-right"/></svg></span>
+          </button>
+          <button class="role-card role-merchant" id="roleMerchantCard">
+            <div class="role-icon"><svg><use href="#ic-shop"/></svg></div>
+            <h3>Merchant</h3>
+            <p>Keep collections moving</p>
+            <p class="role-card-copy">Settlement tracking, reconciliation, payment exceptions, and QR support.</p>
+            <div class="role-mini-actions">
+              <span class="role-mini-chip">Check settlement</span>
+              <span class="role-mini-chip">Reconcile payments</span>
+            </div>
+            <span class="role-card-action">Open workspace <svg width="14" height="14"><use href="#ic-arrow-right"/></svg></span>
+          </button>
+          <button class="role-card role-business" id="roleBusinessCard">
+            <div class="role-icon"><svg><use href="#ic-growth"/></svg></div>
+            <h3>Business Owner</h3>
+            <p>Recover revenue and grow</p>
+            <p class="role-card-copy">Recover failed checkouts, safely run offers, and track growth opportunities.</p>
+            <div class="role-mini-actions">
+              <span class="role-mini-chip">Recover revenue</span>
+              <span class="role-mini-chip">View opportunities</span>
+            </div>
+            <span class="role-card-action">Open workspace <svg width="14" height="14"><use href="#ic-arrow-right"/></svg></span>
+          </button>
+        </div>
       </div>
     </section>
 
-    <section class="reveal metrics">
-      <div class="metric">
-        <div class="metric-num">75%</div>
-        <div class="metric-label">Resolved autonomously</div>
+    <section class="reveal how-it-works" id="how-it-works">
+      <div class="section-inner">
+        <h2 class="section-heading">How DhanAI decides</h2>
+        <div class="workflow-steps">
+          <div class="workflow-step">
+            <div class="workflow-icon"><svg><use href="#ic-search"/></svg></div>
+            <h4>Understand</h4>
+            <p>Reads the issue and relevant account context</p>
+          </div>
+          <div class="workflow-arrow" aria-hidden="true"><svg><use href="#ic-arrow-right"/></svg></div>
+          <div class="workflow-step">
+            <div class="workflow-icon"><svg><use href="#ic-activity"/></svg></div>
+            <h4>Investigate</h4>
+            <p>Checks transactions, settlements, and policy</p>
+          </div>
+          <div class="workflow-arrow" aria-hidden="true"><svg><use href="#ic-arrow-right"/></svg></div>
+          <div class="workflow-step">
+            <div class="workflow-icon"><svg><use href="#ic-bolt"/></svg></div>
+            <h4>Act safely</h4>
+            <p>Refunds, resolves, or escalates only when allowed</p>
+          </div>
+          <div class="workflow-arrow" aria-hidden="true"><svg><use href="#ic-arrow-right"/></svg></div>
+          <div class="workflow-step">
+            <div class="workflow-icon"><svg><use href="#ic-message"/></svg></div>
+            <h4>Inform</h4>
+            <p>Sends a clear Hinglish update with a complete audit trail</p>
+          </div>
+        </div>
+        <div class="safety-strip" id="safety">
+          <svg><use href="#ic-shield"/></svg>
+          <span>Sensitive payment actions are protected by code-level policies&mdash;not only AI instructions.</span>
+        </div>
       </div>
-      <div class="metric">
-        <div class="metric-num">~8s</div>
-        <div class="metric-label">vs 48h manual</div>
+    </section>
+
+    <section class="reveal proof-section">
+      <div class="section-inner">
+        <div class="proof-cards">
+          <div class="proof-card">
+            <div class="proof-num">Seconds, not days</div>
+            <div class="proof-label">Resolution time</div>
+          </div>
+          <div class="proof-card">
+            <div class="proof-num">0 unsafe auto-actions</div>
+            <div class="proof-label">Policy-protected decisions</div>
+          </div>
+          <div class="proof-card">
+            <div class="proof-num">3 role-aware workspaces</div>
+            <div class="proof-label">User, Merchant, Business</div>
+          </div>
+        </div>
       </div>
-      <div class="metric">
-        <div class="metric-num">0</div>
-        <div class="metric-label">Guardrail breaches</div>
-      </div>
-      <div class="metric">
-        <div class="metric-num">6-7</div>
-        <div class="metric-label">Actions per ticket</div>
+    </section>
+
+    <section class="reveal final-cta">
+      <div class="section-inner final-cta-inner">
+        <h2 class="section-heading">Stop chasing payment problems.<br>Let DhanAI resolve them.</h2>
+        <button class="btn-primary-lg" id="finalCtaBtn">Start with DhanAI</button>
+        <p class="final-cta-note">Demo environment &middot; Mock data only</p>
+        <div class="final-role-links">
+          <button class="final-role-link" id="finalRoleUser">Paytm User</button>
+          <button class="final-role-link" id="finalRoleMerchant">Merchant</button>
+          <button class="final-role-link" id="finalRoleBusiness">Business Owner</button>
+        </div>
       </div>
     </section>
   </section>
 
+  <!-- ============ LOGIN ============ -->
   <section class="hidden" id="login">
     <div class="login-shell">
       <div class="login-card">
         <button class="back-link" id="loginBackBtn" aria-label="Back to role selection">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          <svg width="16" height="16"><use href="#ic-chevron-left"/></svg>
           <span>Back to roles</span>
         </button>
         <div class="login-brand">
@@ -113,7 +237,7 @@
           <h1>Dhan<span class="accent">AI</span></h1>
         </div>
         <div class="login-role-tag">
-          <span class="login-role-icon" id="loginRoleIcon">&#128100;</span>
+          <span class="login-role-icon" id="loginRoleIcon"><svg><use href="#ic-user"/></svg></span>
           <span id="loginRoleTitle">Login as Paytm User</span>
         </div>
         <p class="login-sub">Enter any details to continue &mdash; this is a demo login for the DhanAI hackathon build.</p>
@@ -133,47 +257,98 @@
     </div>
   </section>
 
+  <!-- ============ PAYTM USER WORKSPACE ============ -->
   <div class="app hidden" id="console">
-    <header>
-      <div style="display:flex; align-items:center; gap:12px;">
-        <button class="back-btn" id="backBtn" aria-label="Back to role selection">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-        </button>
-        <h1>Dhan<span class="accent">AI</span></h1>
+    <aside class="app-sidebar" id="userSidebar">
+      <div class="sidebar-top">
+        <div class="sidebar-brand"><span class="logo-mark">D</span><span>DhanAI</span></div>
+        <button class="sidebar-toggle" id="userSidebarToggle" aria-label="Collapse sidebar"><svg width="16" height="16"><use href="#ic-menu"/></svg></button>
       </div>
-      <div style="display:flex; align-items:center; gap:12px;">
+      <nav class="sidebar-nav">
+        <button class="sidebar-nav-item active" id="sbUserHome"><svg><use href="#ic-home"/></svg><span class="nav-label">Home</span></button>
+        <button class="sidebar-nav-item" id="sbUserPayments"><svg><use href="#ic-send-money"/></svg><span class="nav-label">Payments</span></button>
+        <button class="sidebar-nav-item" id="sbUserBills"><svg><use href="#ic-bills"/></svg><span class="nav-label">Bills &amp; Recharge</span></button>
+        <button class="sidebar-nav-item" id="sbUserAssistant"><svg><use href="#ic-sparkle"/></svg><span class="nav-label">DhanAI Assistant</span></button>
+        <button class="sidebar-nav-item" id="sbUserSupport"><svg><use href="#ic-shield"/></svg><span class="nav-label">Help &amp; Support</span></button>
+        <button class="sidebar-nav-item" id="sbUserActivity"><svg><use href="#ic-activity"/></svg><span class="nav-label">Activity</span></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <button class="sidebar-nav-item" id="sbUserSwitchRole"><svg><use href="#ic-swap"/></svg><span class="nav-label">Switch role</span></button>
+        <button class="sidebar-nav-item" id="sbUserSettings"><svg><use href="#ic-settings"/></svg><span class="nav-label">Settings</span></button>
+        <button class="sidebar-nav-item" id="sbUserReset"><svg><use href="#ic-reset"/></svg><span class="nav-label">Reset demo state</span></button>
+      </div>
+    </aside>
+
+    <header class="app-header">
+      <div class="app-header-left">
+        <button class="back-btn" id="backBtn" aria-label="Back to role selection"><svg width="18" height="18"><use href="#ic-chevron-left"/></svg></button>
+        <h1 class="brand-wordmark">Dhan<span class="accent">AI</span></h1>
+        <span class="role-badge">Paytm User</span>
+        <span class="demo-badge">Demo mode</span>
+      </div>
+      <div class="app-header-right">
         <span class="status-indicator" id="statusIndicator"><span class="status-dot"></span><span id="statusText">DhanAI</span></span>
-        <button class="reset-btn" id="humanInboxBtn">Human Inbox <span id="inboxBadge" class="inbox-badge hidden">0</span></button>
+        <button class="icon-btn" id="humanInboxBtn" aria-label="Human inbox"><svg><use href="#ic-bell"/></svg><span id="inboxBadge" class="inbox-badge hidden" style="position:absolute; top:-4px; right:-4px;">0</span></button>
         <button class="reset-btn" id="resetBtn">Reset all state</button>
+        <button class="avatar-btn" aria-label="Profile">B</button>
       </div>
     </header>
 
-    <div class="home-scroll">
-      <div class="home">
+    <main class="app-main">
+      <div class="home-scroll">
+      <div class="home page-wrap">
+        <div class="greeting-row">
+          <div>
+            <h2 class="greeting-title" id="userGreetingTitle">Good morning, Bhuvi</h2>
+            <div class="greeting-sub">Here's what DhanAI is watching for you today</div>
+          </div>
+        </div>
+
         <div class="balance-card" id="userBriefWrap">
-          <div class="panel-loading">Loading your brief</div>
+          <div class="panel-loading">
+            <div class="skeleton skeleton-line w-40"></div>
+            <div class="skeleton skeleton-line w-80"></div>
+            <div class="skeleton skeleton-line w-60"></div>
+          </div>
         </div>
 
         <div class="quick-actions">
           <button class="qa-btn" id="qaGetHelp">
-            <span class="qa-icon">&#128172;</span><span>Get Help</span>
+            <span class="qa-icon"><svg><use href="#ic-send-money"/></svg></span><span>Send Money</span>
+          </button>
+          <button class="qa-btn qa-cosmetic" title="Coming soon in this demo">
+            <span class="qa-icon"><svg><use href="#ic-scan"/></svg></span><span>Scan &amp; Pay</span>
+          </button>
+          <button class="qa-btn qa-cosmetic" title="Coming soon in this demo">
+            <span class="qa-icon"><svg><use href="#ic-recharge"/></svg></span><span>Recharge</span>
           </button>
           <button class="qa-btn" id="qaRefundHelp">
-            <span class="qa-icon">&#8617;</span><span>Refund Help</span>
+            <span class="qa-icon"><svg><use href="#ic-bills"/></svg></span><span>Pay Bills</span>
           </button>
-          <button class="qa-btn qa-cosmetic">
-            <span class="qa-icon">&#128179;</span><span>Bills</span>
+          <button class="qa-btn" id="sbUserActivity2">
+            <span class="qa-icon"><svg><use href="#ic-history"/></svg></span><span>Transaction History</span>
           </button>
-          <button class="qa-btn qa-cosmetic">
-            <span class="qa-icon">&#8942;</span><span>More</span>
-          </button>
+        </div>
+
+        <div class="help-card">
+          <h3>Need help with a payment?</h3>
+          <p>Tap an issue below — DhanAI opens ready to investigate.</p>
+          <div class="help-chips">
+            <button class="help-chip" data-help-prompt="Money deducted but payment failed">Money deducted but payment failed</button>
+            <button class="help-chip" data-help-prompt="Check refund status">Check refund status</button>
+            <button class="help-chip" data-help-prompt="Explain this transaction">Explain this transaction</button>
+            <button class="help-chip chip-danger" data-help-prompt="I want to report a suspicious transaction on my account — please escalate this to a human specialist for review.">Report a scam</button>
+          </div>
         </div>
 
         <div class="home-section-head">
           <h2>Recent Transactions</h2>
         </div>
         <div class="txn-list" id="userTxnList">
-          <div class="panel-loading">Loading transactions</div>
+          <div class="panel-loading">
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+          </div>
         </div>
 
         <div class="dev-link-row">
@@ -189,23 +364,32 @@
           <button class="preset-btn" data-scenario="G">Scenario G</button>
         </div>
       </div>
-    </div>
+      </div>
+    </main>
 
-    <button class="fab" id="userAskAiFab" aria-label="Ask AI">
-      <span class="fab-icon">&#10022;</span><span>Ask AI</span>
+    <button class="fab" id="userAskAiFab" aria-label="Ask DhanAI">
+      <svg><use href="#ic-sparkle"/></svg><span>Ask DhanAI</span>
     </button>
 
     <nav class="bottom-nav">
-      <button class="bnav-item active" id="userNavHome"><span class="bnav-icon">&#8962;</span><span>Home</span></button>
-      <button class="bnav-item" id="userNavAskAi"><span class="bnav-icon">&#10022;</span><span>Ask AI</span></button>
-      <button class="bnav-item" id="userNavInbox"><span class="bnav-icon">&#128172;</span><span>Inbox</span></button>
-      <button class="bnav-item" id="userNavProfile"><span class="bnav-icon">&#128100;</span><span>Profile</span></button>
+      <button class="bnav-item active" id="userNavHome"><svg><use href="#ic-home"/></svg><span>Home</span></button>
+      <button class="bnav-item" id="userNavActivity"><svg><use href="#ic-activity"/></svg><span>Activity</span></button>
+      <button class="bnav-item bnav-center" id="userNavAskAi" aria-label="Ask DhanAI"><span class="bnav-center-btn"><svg><use href="#ic-sparkle"/></svg></span></button>
+      <button class="bnav-item" id="userNavInsights"><svg><use href="#ic-insights"/></svg><span>Insights</span></button>
+      <button class="bnav-item" id="userNavProfile"><svg><use href="#ic-profile"/></svg><span>Profile</span></button>
     </nav>
+    <button class="bnav-item hidden" id="userNavInbox"></button>
 
     <div class="assist-overlay hidden" id="userAssistOverlay">
-      <div class="assist-panel">
+      <div class="assist-panel" id="userAssistPanel">
         <div class="assist-panel-head">
-          <span>DhanAI Assistant</span>
+          <div class="assist-agent-id">
+            <span class="assist-avatar"><svg width="18" height="18"><use href="#ic-sparkle"/></svg></span>
+            <span class="assist-agent-status">
+              <span class="assist-agent-name">DhanAI Assistant</span>
+              <span class="assist-agent-state" id="userAgentState"><span class="dot"></span><span class="state-label">DhanAI is ready</span></span>
+            </span>
+          </div>
           <button class="assist-close" id="userAssistClose" aria-label="Close">&times;</button>
         </div>
         <div class="assist-panel-body">
@@ -217,9 +401,41 @@
             <div class="col-body" id="activityBody"></div>
           </div>
         </div>
-        <div class="chat-input">
-          <textarea id="complaintInput" placeholder="Describe the issue..."></textarea>
-          <button id="sendBtn">Send</button>
+        <div class="safety-note"><svg><use href="#ic-shield"/></svg><span>Actions follow secure approval rules.</span></div>
+        <div class="composer" id="userComposer">
+          <div class="prompt-chips" id="userPromptChips">
+            <button class="prompt-chip" data-prompt="Why did my payment fail?">Why did my payment fail?</button>
+            <button class="prompt-chip" data-prompt="Check refund status for my last payment">Check refund status</button>
+            <button class="prompt-chip" data-prompt="Explain my most recent transaction">Explain this transaction</button>
+          </div>
+          <div class="attach-sample-row">
+            <button class="attach-sample-btn" id="userSampleAttachBtn"><svg><use href="#ic-paperclip"/></svg>Attach demo transactions.csv</button>
+          </div>
+          <div class="composer-attachments" id="userAttachments"></div>
+          <div class="attach-error hidden" id="userAttachError"></div>
+          <div class="composer-lang-row">
+            <label for="userVoiceLang">Voice language</label>
+            <select class="lang-select" id="userVoiceLang">
+              <option value="en-IN" selected>English (India) — Hinglish friendly</option>
+              <option value="hi-IN">Hindi (India)</option>
+            </select>
+          </div>
+          <div class="voice-unsupported-note" id="userVoiceUnsupported">Voice input is supported in Chrome-based browsers. You can type your request instead.</div>
+          <div class="voice-status-row" id="userVoiceStatus">
+            <span class="mic-pulse"></span>
+            <span class="voice-status-text">Listening...</span>
+            <span class="voice-timer" id="userVoiceTimer">00:00</span>
+            <button class="voice-stop-btn" id="userVoiceStopBtn">Stop</button>
+          </div>
+          <div class="composer-dropzone-hint">Drop a file to attach it</div>
+          <div class="composer-input-row">
+            <input type="file" id="userFileInput" class="hidden" multiple accept=".png,.jpg,.jpeg,.webp,.pdf,.txt,.csv,.json,image/png,image/jpeg,image/webp,application/pdf,text/plain,text/csv,application/json">
+            <button class="composer-btn" id="userAttachBtn" aria-label="Attach file"><svg><use href="#ic-paperclip"/></svg></button>
+            <button class="composer-btn" id="userMicBtn" aria-label="Voice input"><svg><use href="#ic-mic"/></svg></button>
+            <label for="complaintInput" class="hidden">Describe the issue</label>
+            <textarea id="complaintInput" placeholder="Describe the issue..."></textarea>
+            <button class="composer-send-btn" id="sendBtn" aria-label="Send"><svg><use href="#ic-send"/></svg></button>
+          </div>
         </div>
       </div>
     </div>
@@ -233,15 +449,14 @@
     </div>
   </div>
 
+  <!-- ============ HUMAN ESCALATION INBOX ============ -->
   <div class="app hidden" id="inbox">
-    <header>
-      <div style="display:flex; align-items:center; gap:12px;">
-        <button class="back-btn" id="inboxBackBtn" aria-label="Back to console">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-        </button>
-        <h1>Human <span class="accent">Escalation</span> Queue</h1>
+    <header class="app-header">
+      <div class="app-header-left">
+        <button class="back-btn" id="inboxBackBtn" aria-label="Back to console"><svg width="18" height="18"><use href="#ic-chevron-left"/></svg></button>
+        <h1 class="brand-wordmark">Human <span class="accent">Escalation</span> Queue</h1>
       </div>
-      <div style="display:flex; align-items:center; gap:12px;">
+      <div class="app-header-right">
         <span class="status-indicator" id="inboxStatusIndicator"><span class="status-dot"></span><span>Agent hands off here</span></span>
       </div>
     </header>
@@ -250,35 +465,85 @@
     </div>
   </div>
 
+  <!-- ============ BUSINESS OWNER WORKSPACE ============ -->
   <div class="app hidden" id="sales">
-    <header>
-      <div style="display:flex; align-items:center; gap:12px;">
-        <button class="back-btn" id="salesBackBtn" aria-label="Back to role selection">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-        </button>
-        <h1>Dhan<span class="accent">AI</span> &mdash; Business Owner</h1>
+    <aside class="app-sidebar" id="salesSidebar">
+      <div class="sidebar-top">
+        <div class="sidebar-brand"><span class="logo-mark">D</span><span>DhanAI</span></div>
+        <button class="sidebar-toggle" id="salesSidebarToggle" aria-label="Collapse sidebar"><svg width="16" height="16"><use href="#ic-menu"/></svg></button>
       </div>
-      <div style="display:flex; align-items:center; gap:12px;">
+      <nav class="sidebar-nav">
+        <button class="sidebar-nav-item active" id="sbBizOverview"><svg><use href="#ic-home"/></svg><span class="nav-label">Overview</span></button>
+        <button class="sidebar-nav-item" id="sbBizRevenue"><svg><use href="#ic-insights"/></svg><span class="nav-label">Revenue</span></button>
+        <button class="sidebar-nav-item" id="sbBizCustomers"><svg><use href="#ic-user"/></svg><span class="nav-label">Customers</span></button>
+        <button class="sidebar-nav-item" id="sbBizCampaigns"><svg><use href="#ic-recover"/></svg><span class="nav-label">Recovery Campaigns</span></button>
+        <button class="sidebar-nav-item" id="sbBizAssistant"><svg><use href="#ic-sparkle"/></svg><span class="nav-label">DhanAI Assistant</span></button>
+        <button class="sidebar-nav-item" id="sbBizReports"><svg><use href="#ic-report"/></svg><span class="nav-label">Reports</span></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <button class="sidebar-nav-item" id="sbBizSwitchRole"><svg><use href="#ic-swap"/></svg><span class="nav-label">Switch role</span></button>
+        <button class="sidebar-nav-item" id="sbBizSettings"><svg><use href="#ic-settings"/></svg><span class="nav-label">Settings</span></button>
+        <button class="sidebar-nav-item" id="sbBizReset"><svg><use href="#ic-reset"/></svg><span class="nav-label">Reset demo state</span></button>
+      </div>
+    </aside>
+
+    <header class="app-header">
+      <div class="app-header-left">
+        <button class="back-btn" id="salesBackBtn" aria-label="Back to role selection"><svg width="18" height="18"><use href="#ic-chevron-left"/></svg></button>
+        <h1 class="brand-wordmark">Dhan<span class="accent">AI</span></h1>
+        <span class="role-badge">Business Owner</span>
+        <span class="demo-badge">Demo mode</span>
+      </div>
+      <div class="app-header-right">
         <span class="status-indicator" id="salesStatusIndicator"><span class="status-dot"></span><span id="salesStatusText">DhanAI</span></span>
-        <button class="reset-btn" id="humanInboxBtnBiz">Human Inbox</button>
+        <button class="icon-btn" id="humanInboxBtnBiz" aria-label="Human inbox"><svg><use href="#ic-bell"/></svg></button>
         <button class="reset-btn" id="salesResetBtn">Reset all state</button>
+        <button class="avatar-btn" aria-label="Profile">B</button>
       </div>
     </header>
 
-    <div class="home-scroll">
-      <div class="home">
+    <main class="app-main">
+      <div class="home-scroll">
+      <div class="home page-wrap">
+        <div class="greeting-row">
+          <div>
+            <h2 class="greeting-title">Business growth at a glance</h2>
+            <div class="greeting-sub">DhanAI is watching your recoverable revenue</div>
+          </div>
+        </div>
+
         <div class="balance-card" id="businessBriefWrap">
-          <div class="panel-loading">Loading your brief</div>
+          <div class="panel-loading">
+            <div class="skeleton skeleton-line w-40"></div>
+            <div class="skeleton skeleton-line w-80"></div>
+          </div>
         </div>
 
         <div class="brief-card impact-card" id="impactCardBox">
-          <h3>Revenue Impact</h3>
+          <h3>Campaign Performance</h3>
           <div class="panel-empty">Run outreach on a lead to see impact.</div>
         </div>
 
+        <div class="dcard chart-card" id="salesTrendCard">
+          <div class="dcard-head"><span class="dcard-title">Leads by Status</span></div>
+          <div class="bar-chart" id="salesTrendChart"></div>
+        </div>
+
         <div class="quick-actions">
+          <button class="qa-btn" id="qaBizRecover">
+            <span class="qa-icon"><svg><use href="#ic-recover"/></svg></span><span>Recover Failed Payments</span>
+          </button>
+          <button class="qa-btn" id="qaBizOffer">
+            <span class="qa-icon"><svg><use href="#ic-offer"/></svg></span><span>Create Controlled Offer</span>
+          </button>
+          <button class="qa-btn" id="qaBizReminder">
+            <span class="qa-icon"><svg><use href="#ic-reminder"/></svg></span><span>Send Payment Reminder</span>
+          </button>
+          <button class="qa-btn" id="qaBizInsights">
+            <span class="qa-icon"><svg><use href="#ic-insights"/></svg></span><span>Customer Insights</span>
+          </button>
           <button class="qa-btn" id="qaBizAskAi">
-            <span class="qa-icon">&#128172;</span><span>Ask AI</span>
+            <span class="qa-icon"><svg><use href="#ic-sparkle"/></svg></span><span>Ask DhanAI</span>
           </button>
         </div>
 
@@ -288,23 +553,32 @@
         <div class="presets hidden" id="leadPresets"></div>
         <div class="lead-list" id="leadListCards"></div>
       </div>
-    </div>
+      </div>
+    </main>
 
-    <button class="fab" id="salesAskAiFab" aria-label="Ask AI">
-      <span class="fab-icon">&#10022;</span><span>Ask AI</span>
+    <button class="fab" id="salesAskAiFab" aria-label="Ask DhanAI">
+      <svg><use href="#ic-sparkle"/></svg><span>Ask DhanAI</span>
     </button>
 
     <nav class="bottom-nav">
-      <button class="bnav-item active" id="salesNavHome"><span class="bnav-icon">&#8962;</span><span>Home</span></button>
-      <button class="bnav-item" id="salesNavAskAi"><span class="bnav-icon">&#10022;</span><span>Ask AI</span></button>
-      <button class="bnav-item" id="salesNavInbox"><span class="bnav-icon">&#128172;</span><span>Inbox</span></button>
-      <button class="bnav-item" id="salesNavProfile"><span class="bnav-icon">&#128100;</span><span>Profile</span></button>
+      <button class="bnav-item active" id="salesNavHome"><svg><use href="#ic-home"/></svg><span>Home</span></button>
+      <button class="bnav-item" id="salesNavActivity"><svg><use href="#ic-activity"/></svg><span>Activity</span></button>
+      <button class="bnav-item bnav-center" id="salesNavAskAi" aria-label="Ask DhanAI"><span class="bnav-center-btn"><svg><use href="#ic-sparkle"/></svg></span></button>
+      <button class="bnav-item" id="salesNavInsights"><svg><use href="#ic-insights"/></svg><span>Insights</span></button>
+      <button class="bnav-item" id="salesNavProfile"><svg><use href="#ic-profile"/></svg><span>Profile</span></button>
     </nav>
+    <button class="bnav-item hidden" id="salesNavInbox"></button>
 
     <div class="assist-overlay hidden" id="salesAssistOverlay">
-      <div class="assist-panel">
+      <div class="assist-panel" id="salesAssistPanel">
         <div class="assist-panel-head">
-          <span>DhanAI Assistant</span>
+          <div class="assist-agent-id">
+            <span class="assist-avatar"><svg width="18" height="18"><use href="#ic-sparkle"/></svg></span>
+            <span class="assist-agent-status">
+              <span class="assist-agent-name">DhanAI Assistant</span>
+              <span class="assist-agent-state" id="salesAgentState"><span class="dot"></span><span class="state-label">DhanAI is ready</span></span>
+            </span>
+          </div>
           <button class="assist-close" id="salesAssistClose" aria-label="Close">&times;</button>
         </div>
         <div class="assist-panel-body">
@@ -316,6 +590,18 @@
             <div class="col-body" id="salesActivityBody"></div>
           </div>
         </div>
+        <div class="safety-note"><svg><use href="#ic-shield"/></svg><span>Actions follow secure approval rules.</span></div>
+        <div class="composer" id="salesComposer">
+          <div class="prompt-chips" id="salesPromptChips">
+            <button class="prompt-chip" data-prompt="Show me leads I should follow up on">Show me leads I should follow up on</button>
+            <button class="prompt-chip" data-prompt="Which customers are at their coupon limit?">Customers at coupon limit?</button>
+          </div>
+          <div class="attach-sample-row">
+            <button class="attach-sample-btn" id="salesSampleAttachBtn"><svg><use href="#ic-paperclip"/></svg>Attach demo campaign-report.csv</button>
+          </div>
+          <div class="composer-attachments" id="salesAttachments"></div>
+          <div class="attach-error hidden" id="salesAttachError"></div>
+        </div>
       </div>
     </div>
 
@@ -326,15 +612,14 @@
     </div>
   </div>
 
+  <!-- ============ PLATFORM RECONCILIATION ============ -->
   <div class="app hidden" id="recon">
-    <header>
-      <div style="display:flex; align-items:center; gap:12px;">
-        <button class="back-btn" id="reconBackBtn" aria-label="Back to Merchant workspace">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-        </button>
-        <h1>Dhan<span class="accent">AI</span> &mdash; Platform-wide Reconciliation</h1>
+    <header class="app-header">
+      <div class="app-header-left">
+        <button class="back-btn" id="reconBackBtn" aria-label="Back to Merchant workspace"><svg width="18" height="18"><use href="#ic-chevron-left"/></svg></button>
+        <h1 class="brand-wordmark">Dhan<span class="accent">AI</span> &mdash; Platform-wide Reconciliation</h1>
       </div>
-      <div style="display:flex; align-items:center; gap:12px;">
+      <div class="app-header-right">
         <span class="status-indicator" id="reconStatusIndicator"><span class="status-dot"></span><span id="reconStatusText">DhanAI</span></span>
         <button class="reset-btn" id="reconResetBtn">Reset all state</button>
       </div>
@@ -366,39 +651,99 @@
     </div>
   </div>
 
+  <!-- ============ MERCHANT WORKSPACE ============ -->
   <div class="app hidden" id="merchant">
-    <header>
-      <div style="display:flex; align-items:center; gap:12px;">
-        <button class="back-btn" id="merchantBackBtn" aria-label="Back to role selection">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-        </button>
-        <h1>Dhan<span class="accent">AI</span> &mdash; Merchant</h1>
+    <aside class="app-sidebar" id="merchantSidebar">
+      <div class="sidebar-top">
+        <div class="sidebar-brand"><span class="logo-mark">D</span><span>DhanAI</span></div>
+        <button class="sidebar-toggle" id="merchantSidebarToggle" aria-label="Collapse sidebar"><svg width="16" height="16"><use href="#ic-menu"/></svg></button>
       </div>
-      <div style="display:flex; align-items:center; gap:12px;">
+      <nav class="sidebar-nav">
+        <button class="sidebar-nav-item active" id="sbMerchOverview"><svg><use href="#ic-home"/></svg><span class="nav-label">Overview</span></button>
+        <button class="sidebar-nav-item" id="sbMerchTxns"><svg><use href="#ic-txn"/></svg><span class="nav-label">Transactions</span></button>
+        <button class="sidebar-nav-item" id="sbMerchSettlements"><svg><use href="#ic-insights"/></svg><span class="nav-label">Settlements</span></button>
+        <button class="sidebar-nav-item" id="sbMerchRecon"><svg><use href="#ic-sweep"/></svg><span class="nav-label">Reconciliation</span></button>
+        <button class="sidebar-nav-item" id="sbMerchAssistant"><svg><use href="#ic-sparkle"/></svg><span class="nav-label">DhanAI Assistant</span></button>
+        <button class="sidebar-nav-item" id="sbMerchSupport"><svg><use href="#ic-shield"/></svg><span class="nav-label">Support</span></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <button class="sidebar-nav-item" id="sbMerchSwitchRole"><svg><use href="#ic-swap"/></svg><span class="nav-label">Switch role</span></button>
+        <button class="sidebar-nav-item" id="sbMerchSettings"><svg><use href="#ic-settings"/></svg><span class="nav-label">Settings</span></button>
+        <button class="sidebar-nav-item" id="sbMerchReset"><svg><use href="#ic-reset"/></svg><span class="nav-label">Reset demo state</span></button>
+      </div>
+    </aside>
+
+    <header class="app-header">
+      <div class="app-header-left">
+        <button class="back-btn" id="merchantBackBtn" aria-label="Back to role selection"><svg width="18" height="18"><use href="#ic-chevron-left"/></svg></button>
+        <h1 class="brand-wordmark">Dhan<span class="accent">AI</span></h1>
+        <span class="role-badge">Merchant</span>
+        <span class="demo-badge">Demo mode</span>
+      </div>
+      <div class="app-header-right">
         <span class="status-indicator" id="merchantStatusIndicator"><span class="status-dot"></span><span id="merchantStatusText">DhanAI</span></span>
-        <button class="reset-btn" id="humanInboxBtnMerch">Human Inbox <span id="inboxBadgeMerch" class="inbox-badge hidden">0</span></button>
+        <button class="icon-btn" id="humanInboxBtnMerch" aria-label="Human inbox"><svg><use href="#ic-bell"/></svg><span id="inboxBadgeMerch" class="inbox-badge hidden" style="position:absolute; top:-4px; right:-4px;">0</span></button>
         <button class="reset-btn" id="goPlatformReconBtn">Platform Reconciliation</button>
         <button class="reset-btn" id="merchantResetBtn">Reset all state</button>
+        <button class="avatar-btn" aria-label="Profile">M</button>
       </div>
     </header>
 
-    <div class="home-scroll">
-      <div class="home">
+    <main class="app-main">
+      <div class="home-scroll">
+      <div class="home page-wrap">
+        <div class="greeting-row">
+          <div>
+            <h2 class="greeting-title" id="merchantGreetingTitle">Good morning</h2>
+            <div class="greeting-sub">Today's collections at a glance</div>
+          </div>
+        </div>
+
         <div class="merchant-picker" id="merchantPicker"></div>
 
         <div class="balance-card" id="merchantBriefWrap">
           <div class="panel-empty">Select a merchant above to load their brief.</div>
         </div>
 
+        <div class="stat-row" id="merchantStatRow"></div>
+
+        <div class="card-grid" style="margin-bottom: var(--sp-4);">
+          <div class="dcard health-card" id="merchantHealthCard">
+            <span class="health-dot"></span>
+            <div>
+              <div class="health-text">QR &amp; payment acceptance: All systems normal</div>
+              <div class="health-sub">Cosmetic status for this demo — no live device monitoring integration.</div>
+            </div>
+          </div>
+          <div class="dcard" id="merchantSettlementEtaCard">
+            <div class="dcard-title">Settlement ETA</div>
+            <div class="num" style="font-size:18px; font-weight:800; margin-top:6px;" id="merchantEtaValue">—</div>
+          </div>
+        </div>
+
+        <div class="dcard chart-card" id="merchantTrendCard">
+          <div class="dcard-head"><span class="dcard-title">Collection Trend</span></div>
+          <div class="bar-chart" id="merchantTrendChart"></div>
+        </div>
+
         <div class="quick-actions">
           <button class="qa-btn" id="qaRunSweep">
-            <span class="qa-icon">&#128260;</span><span>Run Settlement Sweep</span>
+            <span class="qa-icon"><svg><use href="#ic-sweep"/></svg></span><span>Check Settlement</span>
           </button>
           <button class="qa-btn" id="qaMerchantAskAi">
-            <span class="qa-icon">&#128172;</span><span>Ask AI</span>
+            <span class="qa-icon"><svg><use href="#ic-sparkle"/></svg></span><span>Reconcile Payments</span>
+          </button>
+          <button class="qa-btn" id="qaDownloadReport">
+            <span class="qa-icon"><svg><use href="#ic-download"/></svg></span><span>Download Report</span>
+          </button>
+          <button class="qa-btn" id="qaDeviceIssue">
+            <span class="qa-icon"><svg><use href="#ic-device"/></svg></span><span>QR/Device Issue</span>
+          </button>
+          <button class="qa-btn" id="qaDispute">
+            <span class="qa-icon"><svg><use href="#ic-dispute"/></svg></span><span>Raise a Dispute</span>
           </button>
           <button class="qa-btn" id="qaGoRecon">
-            <span class="qa-icon">&#9878;</span><span>Platform Recon</span>
+            <span class="qa-icon"><svg><use href="#ic-swap"/></svg></span><span>Platform Recon</span>
           </button>
         </div>
 
@@ -410,23 +755,32 @@
           <div class="panel-empty">No data</div>
         </div>
       </div>
-    </div>
+      </div>
+    </main>
 
-    <button class="fab" id="merchantAskAiFab" aria-label="Ask AI">
-      <span class="fab-icon">&#10022;</span><span>Ask AI</span>
+    <button class="fab" id="merchantAskAiFab" aria-label="Ask DhanAI">
+      <svg><use href="#ic-sparkle"/></svg><span>Ask DhanAI</span>
     </button>
 
     <nav class="bottom-nav">
-      <button class="bnav-item active" id="merchantNavHome"><span class="bnav-icon">&#8962;</span><span>Home</span></button>
-      <button class="bnav-item" id="merchantNavAskAi"><span class="bnav-icon">&#10022;</span><span>Ask AI</span></button>
-      <button class="bnav-item" id="merchantNavInbox"><span class="bnav-icon">&#128172;</span><span>Inbox</span></button>
-      <button class="bnav-item" id="merchantNavProfile"><span class="bnav-icon">&#128100;</span><span>Profile</span></button>
+      <button class="bnav-item active" id="merchantNavHome"><svg><use href="#ic-home"/></svg><span>Home</span></button>
+      <button class="bnav-item" id="merchantNavActivity"><svg><use href="#ic-activity"/></svg><span>Activity</span></button>
+      <button class="bnav-item bnav-center" id="merchantNavAskAi" aria-label="Ask DhanAI"><span class="bnav-center-btn"><svg><use href="#ic-sparkle"/></svg></span></button>
+      <button class="bnav-item" id="merchantNavInsights"><svg><use href="#ic-insights"/></svg><span>Insights</span></button>
+      <button class="bnav-item" id="merchantNavProfile"><svg><use href="#ic-profile"/></svg><span>Profile</span></button>
     </nav>
+    <button class="bnav-item hidden" id="merchantNavInbox"></button>
 
     <div class="assist-overlay hidden" id="merchantAssistOverlay">
-      <div class="assist-panel">
+      <div class="assist-panel" id="merchantAssistPanel">
         <div class="assist-panel-head">
-          <span>DhanAI Assistant</span>
+          <div class="assist-agent-id">
+            <span class="assist-avatar"><svg width="18" height="18"><use href="#ic-sparkle"/></svg></span>
+            <span class="assist-agent-status">
+              <span class="assist-agent-name">DhanAI Assistant</span>
+              <span class="assist-agent-state" id="merchantAgentState"><span class="dot"></span><span class="state-label">DhanAI is ready</span></span>
+            </span>
+          </div>
           <button class="assist-close" id="merchantAssistClose" aria-label="Close">&times;</button>
         </div>
         <div class="assist-panel-body">
@@ -438,9 +792,40 @@
             <div class="col-body" id="merchantActivityBody"></div>
           </div>
         </div>
-        <div class="merchant-query-input">
-          <textarea id="merchantQueryInput" placeholder="e.g. Mujhe kal ke Rs.5600 payment ka settlement nahi mila..."></textarea>
-          <button id="merchantQuerySendBtn">Ask</button>
+        <div class="safety-note"><svg><use href="#ic-shield"/></svg><span>Actions follow secure approval rules.</span></div>
+        <div class="composer" id="merchantComposer">
+          <div class="prompt-chips" id="merchantPromptChips">
+            <button class="prompt-chip" data-prompt="Check today's settlement status">Check today's settlement status</button>
+            <button class="prompt-chip" data-prompt="Mujhe kal ke payment ka settlement nahi mila">Mujhe kal ka settlement nahi mila</button>
+          </div>
+          <div class="attach-sample-row">
+            <button class="attach-sample-btn" id="merchantSampleAttachBtn"><svg><use href="#ic-paperclip"/></svg>Attach demo settlement-report.csv</button>
+          </div>
+          <div class="composer-attachments" id="merchantAttachments"></div>
+          <div class="attach-error hidden" id="merchantAttachError"></div>
+          <div class="composer-lang-row">
+            <label for="merchantVoiceLang">Voice language</label>
+            <select class="lang-select" id="merchantVoiceLang">
+              <option value="en-IN" selected>English (India) — Hinglish friendly</option>
+              <option value="hi-IN">Hindi (India)</option>
+            </select>
+          </div>
+          <div class="voice-unsupported-note" id="merchantVoiceUnsupported">Voice input is supported in Chrome-based browsers. You can type your request instead.</div>
+          <div class="voice-status-row" id="merchantVoiceStatus">
+            <span class="mic-pulse"></span>
+            <span class="voice-status-text">Listening...</span>
+            <span class="voice-timer" id="merchantVoiceTimer">00:00</span>
+            <button class="voice-stop-btn" id="merchantVoiceStopBtn">Stop</button>
+          </div>
+          <div class="composer-dropzone-hint">Drop a file to attach it</div>
+          <div class="composer-input-row">
+            <input type="file" id="merchantFileInput" class="hidden" multiple accept=".png,.jpg,.jpeg,.webp,.pdf,.txt,.csv,.json,image/png,image/jpeg,image/webp,application/pdf,text/plain,text/csv,application/json">
+            <button class="composer-btn" id="merchantAttachBtn" aria-label="Attach file"><svg><use href="#ic-paperclip"/></svg></button>
+            <button class="composer-btn" id="merchantMicBtn" aria-label="Voice input"><svg><use href="#ic-mic"/></svg></button>
+            <label for="merchantQueryInput" class="hidden">Ask about a settlement</label>
+            <textarea id="merchantQueryInput" placeholder="e.g. Mujhe kal ke Rs.5600 payment ka settlement nahi mila..."></textarea>
+            <button class="composer-send-btn" id="merchantQuerySendBtn" aria-label="Ask"><svg><use href="#ic-send"/></svg></button>
+          </div>
         </div>
       </div>
     </div>
@@ -453,6 +838,20 @@
       </div>
       <div class="state-box" id="merchantTxnBox"><h3>Today's Collections &amp; Pending Settlements</h3><div class="kv">No data</div></div>
       <div class="state-box" id="merchantExceptionsBox"><h3>Exceptions / Escalations</h3><div class="kv">None</div></div>
+    </div>
+  </div>
+
+  <!-- ============ SHARED: TOASTS / MODAL ============ -->
+  <div class="toast-stack" id="toastStack"></div>
+
+  <div class="modal-overlay hidden" id="confirmModal">
+    <div class="modal-box">
+      <h3 class="modal-title" id="confirmModalTitle">Confirm action</h3>
+      <div class="modal-body" id="confirmModalBody">This will trigger a real simulated action. Continue?</div>
+      <div class="modal-actions">
+        <button class="btn btn-cancel" id="confirmModalCancel">Cancel</button>
+        <button class="btn btn-confirm" id="confirmModalConfirm">Confirm</button>
+      </div>
     </div>
   </div>
 

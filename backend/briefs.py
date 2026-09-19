@@ -90,6 +90,13 @@ def get_user_brief(customer_id: str) -> dict:
         },
         "needs_attention": needs_attention,
         "refund_status": refund_status,
+        "recent_transactions": [
+            {
+                "txn_id": t["txn_id"], "merchant_name": t["merchant_name"], "amount": t["amount"],
+                "status": t["status"], "timestamp": t["timestamp"].isoformat(timespec="seconds"),
+            }
+            for t in txns[:10]
+        ],
         "open_ticket": open_ticket,
         "proactive_message": proactive_message,
     }

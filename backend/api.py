@@ -43,14 +43,23 @@ MERCHANT_SWEEP_TXN_IDS = {
 }
 
 
+class AttachmentContext(BaseModel):
+    filename: str
+    type: str
+    size: int
+    text_preview: str | None = None
+
+
 class RunRequest(BaseModel):
     complaint: str
     customer_id: str
+    attachments: list[AttachmentContext] | None = None
 
 
 class SalesRunRequest(BaseModel):
     lead_id: str
     customer_id: str
+    attachments: list[AttachmentContext] | None = None
 
 
 class ResolveEscalationRequest(BaseModel):
@@ -60,6 +69,23 @@ class ResolveEscalationRequest(BaseModel):
 class MerchantQueryRequest(BaseModel):
     merchant_id: str
     question: str
+    attachments: list[AttachmentContext] | None = None
+
+
+def _append_attachment_context(text: str, attachments: list[AttachmentContext] | None) -> str:
+    """Fold attachment metadata (and, for text-like files, the client-read preview)
+    into the existing complaint/question string before it reaches the agent loop.
+    This is the only integration point - agent.py/sales_agent.py/merchant_agent.py
+    are untouched, they just see a slightly longer string."""
+    if not attachments:
+        return text
+    notes = []
+    for a in attachments:
+        if a.text_preview:
+            notes.append(f"[Attached: {a.filename} ({a.type}, {a.size} bytes) - preview: {a.text_preview}]")
+        else:
+            notes.append(f"[Attached: {a.filename} ({a.type}, {a.size} bytes) - file metadata only, no content extracted]")
+    return text + "\n\n" + "\n".join(notes)
 
 
 def _current_state(customer_id: str, ticket_id: str | None) -> dict:
@@ -350,13 +376,15 @@ async def start_merchant_query(req: MerchantQueryRequest):
     ticket = crm.get_ticket_for_customer(req.merchant_id)
     ticket_id = ticket["ticket_id"] if ticket else None
 
+    question = _append_attachment_context(req.question, req.attachments)
+
     run_id = uuid.uuid4().hex[:12]
     MERCHANT_QUERY_RUNS[run_id] = {
         "events": [],
         "done": False,
         "state": _current_merchant_state(req.merchant_id),
     }
-    asyncio.create_task(execute_merchant_query(run_id, req.merchant_id, ticket_id, req.question))
+    asyncio.create_task(execute_merchant_query(run_id, req.merchant_id, ticket_id, question))
     return {"run_id": run_id}
 
 
@@ -397,13 +425,15 @@ async def start_run(req: RunRequest):
     ticket = crm.get_ticket_for_customer(req.customer_id)
     ticket_id = ticket["ticket_id"] if ticket else None
 
+    complaint = _append_attachment_context(req.complaint, req.attachments)
+
     run_id = uuid.uuid4().hex[:12]
     RUNS[run_id] = {
         "events": [],
         "done": False,
         "state": _current_state(req.customer_id, ticket_id),
     }
-    asyncio.create_task(execute_agent(run_id, req.customer_id, ticket_id, req.complaint))
+    asyncio.create_task(execute_agent(run_id, req.customer_id, ticket_id, complaint))
     return {"run_id": run_id}
 
 

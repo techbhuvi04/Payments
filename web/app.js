@@ -106,14 +106,25 @@ const qaBizAskAi = document.getElementById("qaBizAskAi");
 // Generic overlay open/close helper, reused by all three workspaces.
 function openAssistOverlay(overlayEl) {
   overlayEl.classList.remove("hidden");
+  document.addEventListener("keydown", escCloseHandler);
 }
 function closeAssistOverlay(overlayEl) {
   overlayEl.classList.add("hidden");
+  document.removeEventListener("keydown", escCloseHandler);
+}
+function escCloseHandler(e) {
+  if (e.key !== "Escape") return;
+  [userAssistOverlay, merchantAssistOverlay, salesAssistOverlay].forEach(o => {
+    if (o && !o.classList.contains("hidden")) closeAssistOverlay(o);
+  });
 }
 function toggleExplain(toggleBtn, wrapEl, label = "How did AI decide this?") {
   const isHidden = wrapEl.classList.contains("hidden");
   wrapEl.classList.toggle("hidden");
   toggleBtn.textContent = isHidden ? `${label} ↑` : `${label} ↓`;
+  // The toggle now also governs whether raw technical tool-call detail (args/JSON)
+  // stays expanded inside already-rendered readable-step cards.
+  wrapEl.querySelectorAll(".card-technical").forEach(el => el.classList.toggle("show", !isHidden));
 }
 
 let currentCustomerId = "CUST_A";
@@ -183,6 +194,72 @@ function toolLabel(event) {
   return event.tool || event.type;
 }
 
+// ---------- READABLE STEP TRANSLATION ----------
+// UI framing layer only: translates raw tool names into a human-readable action
+// description for the DEFAULT view. The raw tool name/args/result stay available
+// underneath via the "technical details" toggle (see addActivityCard). This does
+// not change what the agent does - it's purely presentational.
+const READABLE_STEP_MAP = {
+  check_bank_settlement: "Checking bank settlement",
+  initiate_refund: "Verifying refund eligibility and processing refund",
+  send_customer_message: "Sending customer update",
+  send_winback_message: "Sending customer update",
+  escalate_to_human: "Escalating to a human specialist",
+  escalate_mismatch: "Escalating to a human specialist",
+  escalate_merchant_case: "Escalating to a human specialist",
+  get_customer_transactions: "Reviewing transaction history",
+  get_merchant_transactions: "Reviewing transaction history",
+  get_lead: "Reviewing transaction history",
+  force_settlement: "Force-settling stuck transaction",
+  update_ticket: "Updating case record",
+  update_lead_status: "Updating case record",
+  issue_discount_coupon: "Checking discount eligibility and issuing offer",
+  correct_merchant_status: "Correcting settlement record",
+  correct_internal_status: "Correcting settlement record",
+  reverse_merchant_collection: "Reversing incorrect collection",
+  auto_refund_mismatch: "Reversing incorrect collection",
+  mark_reconciled: "Confirming settlement match",
+  mark_settlement_confirmed: "Confirming settlement match",
+};
+
+function readableStep(event) {
+  if (event.type === "thinking") return "Reading context and deciding next step";
+  if (event.type === "guardrail_block") return `Guardrail blocked an unsafe action (${event.tool || "action"})`;
+  if (event.type === "done") return "Finishing up";
+  const tool = event.tool || event.type;
+  return READABLE_STEP_MAP[tool] || `Running ${tool}`;
+}
+
+// ---------- AUTONOMY METER ----------
+// A simple, clearly-commented UI heuristic layered over the EXISTING guardrail
+// system - it does NOT enforce anything itself (real enforcement is server-side
+// in tools.py/merchant_tools.py/sales_tools.py/recon_tools.py, unchanged).
+// Rule: escalation/guardrail_block events -> "High risk, human escalation required".
+// Tool names that move money or change status -> "Medium risk, confirmation
+// required" (heuristic: any tool whose name implies refund/reversal/settlement
+// correction/coupon issuance). Everything else (lookups, messages, ticket notes)
+// -> "Low risk, auto action allowed".
+const MEDIUM_RISK_TOOLS = new Set([
+  "initiate_refund", "force_settlement", "issue_discount_coupon",
+  "correct_merchant_status", "correct_internal_status",
+  "reverse_merchant_collection", "auto_refund_mismatch",
+  "mark_reconciled", "mark_settlement_confirmed",
+]);
+
+function autonomyTier(event) {
+  if (event.type === "escalation" || event.type === "guardrail_block") {
+    return { tier: "high", label: "Human escalation required" };
+  }
+  const tool = event.tool || "";
+  if (MEDIUM_RISK_TOOLS.has(tool)) {
+    return { tier: "medium", label: "User confirmation required" };
+  }
+  if (event.type === "tool_call" || event.type === "message_sent") {
+    return { tier: "low", label: "Auto action allowed" };
+  }
+  return null;
+}
+
 function parseMaybeJson(obj) {
   if (typeof obj === "string") {
     try { return JSON.parse(obj); } catch { return obj; }
@@ -232,6 +309,14 @@ function addActivityCard(event, container = activityBody, cardRef = "typingCardE
   tool.textContent = toolLabel(event);
   head.appendChild(tool);
 
+  const autonomy = autonomyTier(event);
+  if (autonomy) {
+    const chip = document.createElement("span");
+    chip.className = `autonomy-chip ${autonomy.tier}`;
+    chip.textContent = autonomy.label;
+    head.appendChild(chip);
+  }
+
   if (event.latency_ms !== null && event.latency_ms !== undefined) {
     const badge = document.createElement("span");
     badge.className = "badge";
@@ -240,6 +325,18 @@ function addActivityCard(event, container = activityBody, cardRef = "typingCardE
   }
   card.appendChild(head);
 
+  // Readable step is the DEFAULT view.
+  if (event.type !== "thinking" && event.type !== "done") {
+    const readable = document.createElement("div");
+    readable.className = "card-readable";
+    readable.textContent = readableStep(event);
+    card.appendChild(readable);
+  }
+
+  // Raw technical detail (tool name already shown via .card-tool, plus args/result)
+  // lives in a collapsible block that the explainability toggle expands/collapses.
+  const tech = document.createElement("div");
+  tech.className = "card-technical";
   if (event.type === "thinking") {
     const p = document.createElement("div");
     p.textContent = event.result;
@@ -247,8 +344,9 @@ function addActivityCard(event, container = activityBody, cardRef = "typingCardE
   } else if (event.type === "done") {
     addJsonBlock(card, "result", event.result);
   } else {
-    if (event.args) addJsonBlock(card, "args", event.args);
-    addJsonBlock(card, "result", event.result);
+    if (event.args) addJsonBlock(tech, "args", event.args);
+    addJsonBlock(tech, "result", event.result);
+    card.appendChild(tech);
   }
 
   const typingEl = typingCardRefs[cardRef];
@@ -331,6 +429,12 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function humanFileSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function renderState(state) {
   renderTicket(state.ticket);
   renderTransactions(state.transactions);
@@ -338,11 +442,328 @@ function renderState(state) {
   renderSms(state.sms_outbox);
 }
 
+// ---------- TOASTS ----------
+const toastStack = document.getElementById("toastStack");
+function showToast(message) {
+  if (!toastStack) return;
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.innerHTML = `<svg><use href="#ic-check"/></svg><span></span>`;
+  el.querySelector("span").textContent = message;
+  toastStack.appendChild(el);
+  setTimeout(() => {
+    el.classList.add("leaving");
+    setTimeout(() => el.remove(), 250);
+  }, 2600);
+}
+
+// ---------- CONFIRMATION MODAL ----------
+// Real modal component: cancel aborts (never calls the backend), confirm proceeds
+// with the existing flow unchanged. Used before quick actions that trigger a real
+// simulated money-moving sales run.
+const confirmModal = document.getElementById("confirmModal");
+const confirmModalTitle = document.getElementById("confirmModalTitle");
+const confirmModalBody = document.getElementById("confirmModalBody");
+const confirmModalCancel = document.getElementById("confirmModalCancel");
+const confirmModalConfirm = document.getElementById("confirmModalConfirm");
+let confirmModalResolver = null;
+
+function askConfirm(title, body) {
+  return new Promise(resolve => {
+    confirmModalTitle.textContent = title;
+    confirmModalBody.textContent = body;
+    confirmModal.classList.remove("hidden");
+    confirmModalResolver = resolve;
+  });
+}
+function closeConfirmModal(result) {
+  confirmModal.classList.add("hidden");
+  if (confirmModalResolver) { confirmModalResolver(result); confirmModalResolver = null; }
+}
+confirmModalCancel.addEventListener("click", () => closeConfirmModal(false));
+confirmModalConfirm.addEventListener("click", () => closeConfirmModal(true));
+confirmModal.addEventListener("click", (e) => { if (e.target === confirmModal) closeConfirmModal(false); });
+
+// ---------- SIDEBAR (collapse toggle + nav-active state) ----------
+function wireSidebarToggle(toggleBtn, appEl) {
+  if (!toggleBtn) return;
+  toggleBtn.addEventListener("click", () => appEl.classList.toggle("sidebar-collapsed"));
+}
+wireSidebarToggle(document.getElementById("userSidebarToggle"), consoleView);
+wireSidebarToggle(document.getElementById("salesSidebarToggle"), salesView);
+wireSidebarToggle(document.getElementById("merchantSidebarToggle"), merchantView);
+
+function setActiveSidebarItem(navItems, activeId) {
+  navItems.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("active", id === activeId);
+  });
+}
+
+// ---------- ATTACHMENTS (paperclip, drag-drop, sample attach) ----------
+// Client-side only: TXT/CSV/JSON get a real text preview (FileReader.readAsText,
+// truncated to 2000 chars) sent to the backend as attachment context. PDF/image
+// only send metadata - no OCR or content extraction is implemented or claimed.
+const ACCEPTED_TYPES = {
+  "image/png": "image", "image/jpeg": "image", "image/webp": "image",
+  "application/pdf": "pdf",
+  "text/plain": "text", "text/csv": "text", "application/json": "text",
+};
+const ACCEPTED_EXT = { png: "image", jpg: "image", jpeg: "image", webp: "image", pdf: "pdf", txt: "text", csv: "text", json: "text" };
+const MAX_FILES = 5;
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const TEXT_PREVIEW_LIMIT = 2000;
+
+function classifyFile(file) {
+  if (ACCEPTED_TYPES[file.type]) return ACCEPTED_TYPES[file.type];
+  const ext = (file.name.split(".").pop() || "").toLowerCase();
+  return ACCEPTED_EXT[ext] || null;
+}
+
+// Per-workspace attachment state: { files: [{file, kind, preview, id}], errorEl, listEl }
+function makeAttachmentStore(listElId, errorElId) {
+  return { items: [], listEl: document.getElementById(listElId), errorEl: document.getElementById(errorElId) };
+}
+const userAttachStore = makeAttachmentStore("userAttachments", "userAttachError");
+const merchantAttachStore = makeAttachmentStore("merchantAttachments", "merchantAttachError");
+const salesAttachStore = makeAttachmentStore("salesAttachments", "salesAttachError");
+
+function attachError(store, msg) {
+  store.errorEl.textContent = msg;
+  store.errorEl.classList.remove("hidden");
+  setTimeout(() => store.errorEl.classList.add("hidden"), 4000);
+}
+
+function iconForKind(kind) {
+  if (kind === "image") return "#ic-image";
+  if (kind === "pdf") return "#ic-pdf";
+  return "#ic-doc";
+}
+
+async function addFilesToStore(store, fileList) {
+  const files = Array.from(fileList);
+  for (const file of files) {
+    if (store.items.length >= MAX_FILES) {
+      attachError(store, `You can attach at most ${MAX_FILES} files.`);
+      break;
+    }
+    const kind = classifyFile(file);
+    if (!kind) {
+      attachError(store, `"${file.name}" isn't a supported type. Use PNG/JPG/WEBP, PDF, TXT, CSV, or JSON.`);
+      continue;
+    }
+    if (file.size > MAX_FILE_BYTES) {
+      attachError(store, `"${file.name}" is over the 10 MB limit.`);
+      continue;
+    }
+    const item = { id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, file, kind, preview: null, thumbUrl: null };
+    if (kind === "image") {
+      try { item.thumbUrl = URL.createObjectURL(file); } catch (e) { /* best effort */ }
+    } else if (kind === "text") {
+      try {
+        item.preview = await readTextPreview(file);
+      } catch (e) { /* preview is best-effort; metadata still attaches */ }
+    }
+    store.items.push(item);
+  }
+  renderAttachStore(store);
+}
+
+function readTextPreview(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || "").slice(0, TEXT_PREVIEW_LIMIT));
+    reader.onerror = reject;
+    reader.readAsText(file);
+  });
+}
+
+function renderAttachStore(store) {
+  store.listEl.innerHTML = "";
+  store.items.forEach(item => {
+    const chip = document.createElement("div");
+    chip.className = "attach-chip";
+    const thumb = item.kind === "image" && item.thumbUrl
+      ? `<img class="attach-chip-thumb" src="${item.thumbUrl}" alt="">`
+      : `<span class="attach-chip-icon"><svg><use href="${iconForKind(item.kind)}"/></svg></span>`;
+    chip.innerHTML = `
+      ${thumb}
+      <span class="attach-chip-meta">
+        <span class="attach-chip-name">${escapeHtml(item.file.name)}</span>
+        <span class="attach-chip-size">${humanFileSize(item.file.size)} &middot; ${item.kind === "text" && item.preview ? "DhanAI reviewed attached context" : "DhanAI has the file details"}</span>
+      </span>
+      <button class="attach-chip-remove" aria-label="Remove ${escapeHtml(item.file.name)}"><svg width="12" height="12"><use href="#ic-close"/></svg></button>
+    `;
+    chip.querySelector(".attach-chip-remove").addEventListener("click", () => {
+      store.items = store.items.filter(i => i.id !== item.id);
+      renderAttachStore(store);
+    });
+    store.listEl.appendChild(chip);
+  });
+}
+
+function attachmentsPayload(store) {
+  if (!store.items.length) return undefined;
+  return store.items.map(item => ({
+    filename: item.file.name,
+    type: item.file.type || `file/${item.kind}`,
+    size: item.file.size,
+    text_preview: item.preview || null,
+  }));
+}
+
+function clearAttachStore(store) {
+  store.items = [];
+  renderAttachStore(store);
+}
+
+function wireAttachUI(fileInputId, attachBtnId, panelEl, store, sampleBtnId, sampleFile) {
+  const fileInput = document.getElementById(fileInputId);
+  const attachBtn = document.getElementById(attachBtnId);
+  if (attachBtn && fileInput) {
+    attachBtn.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", () => {
+      addFilesToStore(store, fileInput.files);
+      fileInput.value = "";
+    });
+  }
+  if (panelEl) {
+    panelEl.addEventListener("dragover", (e) => { e.preventDefault(); panelEl.classList.add("drag-over"); });
+    panelEl.addEventListener("dragleave", (e) => { if (e.target === panelEl) panelEl.classList.remove("drag-over"); });
+    panelEl.addEventListener("drop", (e) => {
+      e.preventDefault();
+      panelEl.classList.remove("drag-over");
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+        addFilesToStore(store, e.dataTransfer.files);
+      }
+    });
+  }
+  const sampleBtn = document.getElementById(sampleBtnId);
+  if (sampleBtn) {
+    sampleBtn.addEventListener("click", () => {
+      const blob = new Blob([sampleFile.content], { type: sampleFile.type });
+      const file = new File([blob], sampleFile.name, { type: sampleFile.type });
+      addFilesToStore(store, [file]);
+    });
+  }
+}
+
+const DEMO_USER_CSV = "txn_id,merchant,amount,status\nTXN2201,Sharma Electronics,2400,FAILED\nTXN2202,Gupta Kirana Store,850,SUCCESS\nTXN2203,Iyer Textiles,3200,PENDING\n";
+const DEMO_MERCHANT_CSV = "mtxn_id,payer,amount,collection_status,settlement_status\nMTXN_101,Ramesh K,1200,COLLECTED,PENDING\nMTXN_102,Sunita P,3400,COLLECTED,SETTLED\n";
+const DEMO_BIZ_CSV = "lead_id,merchant,cart_value,status\nLEAD_S1,Fashion Hub,4200,CART_ABANDONED\nLEAD_S2,Home Decor Co,1800,PAYMENT_FAILED\n";
+
+wireAttachUI("userFileInput", "userAttachBtn", document.getElementById("userAssistPanel"), userAttachStore, "userSampleAttachBtn",
+  { name: "demo-transactions.csv", type: "text/csv", content: DEMO_USER_CSV });
+wireAttachUI("merchantFileInput", "merchantAttachBtn", document.getElementById("merchantAssistPanel"), merchantAttachStore, "merchantSampleAttachBtn",
+  { name: "demo-settlement-report.csv", type: "text/csv", content: DEMO_MERCHANT_CSV });
+wireAttachUI(null, null, document.getElementById("salesAssistPanel"), salesAttachStore, "salesSampleAttachBtn",
+  { name: "demo-campaign-report.csv", type: "text/csv", content: DEMO_BIZ_CSV });
+
+// ---------- VOICE INPUT (Web Speech API) ----------
+// Real browser speech recognition wiring - feature-detected at first mic-button
+// click (and again lazily per workspace), never simulated. If unavailable, shows
+// a non-blocking message and never pretends to listen.
+const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function makeVoiceController({ micBtnId, statusRowId, timerElId, stopBtnId, unsupportedElId, langSelectId, targetInputEl }) {
+  const micBtn = document.getElementById(micBtnId);
+  const statusRow = document.getElementById(statusRowId);
+  const timerEl = document.getElementById(timerElId);
+  const stopBtn = document.getElementById(stopBtnId);
+  const unsupportedEl = document.getElementById(unsupportedElId);
+  const langSelect = document.getElementById(langSelectId);
+  if (!micBtn) return;
+
+  let recognition = null;
+  let listening = false;
+  let startedAt = null;
+  let timerInterval = null;
+  let interimBase = "";
+
+  function fmtElapsed(ms) {
+    const s = Math.floor(ms / 1000);
+    const mm = String(Math.floor(s / 60)).padStart(2, "0");
+    const ss = String(s % 60).padStart(2, "0");
+    return `${mm}:${ss}`;
+  }
+
+  function stopListening() {
+    listening = false;
+    if (recognition) { try { recognition.stop(); } catch (e) { /* already stopped */ } }
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    statusRow.classList.remove("active");
+    micBtn.classList.remove("mic-active");
+  }
+
+  micBtn.addEventListener("click", () => {
+    if (!SpeechRecognitionCtor) {
+      unsupportedEl.classList.add("show");
+      setTimeout(() => unsupportedEl.classList.remove("show"), 5000);
+      return;
+    }
+    if (listening) { stopListening(); return; }
+
+    recognition = new SpeechRecognitionCtor();
+    recognition.lang = langSelect ? langSelect.value : "en-IN";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    interimBase = targetInputEl.value ? targetInputEl.value + " " : "";
+    listening = true;
+    startedAt = Date.now();
+    statusRow.classList.add("active");
+    micBtn.classList.add("mic-active");
+    timerEl.textContent = "00:00";
+    timerInterval = setInterval(() => { timerEl.textContent = fmtElapsed(Date.now() - startedAt); }, 500);
+
+    recognition.onresult = (event) => {
+      let finalText = "";
+      let interimText = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) finalText += transcript;
+        else interimText += transcript;
+      }
+      if (finalText) interimBase += finalText;
+      targetInputEl.value = (interimBase + interimText).trim();
+    };
+    recognition.onerror = () => { stopListening(); };
+    recognition.onend = () => { stopListening(); };
+
+    try { recognition.start(); } catch (e) { stopListening(); }
+  });
+
+  if (stopBtn) stopBtn.addEventListener("click", stopListening);
+}
+
+makeVoiceController({
+  micBtnId: "userMicBtn", statusRowId: "userVoiceStatus", timerElId: "userVoiceTimer",
+  stopBtnId: "userVoiceStopBtn", unsupportedElId: "userVoiceUnsupported", langSelectId: "userVoiceLang",
+  targetInputEl: complaintInput,
+});
+makeVoiceController({
+  micBtnId: "merchantMicBtn", statusRowId: "merchantVoiceStatus", timerElId: "merchantVoiceTimer",
+  stopBtnId: "merchantVoiceStopBtn", unsupportedElId: "merchantVoiceUnsupported", langSelectId: "merchantVoiceLang",
+  targetInputEl: merchantQueryInput,
+});
+
+// ---------- Agent status indicator inside the drawer ----------
+function setAgentDrawerState(stateElId, working) {
+  const el = document.getElementById(stateElId);
+  if (!el) return;
+  el.classList.toggle("working", working);
+  el.querySelector(".state-label").textContent = working ? "DhanAI is working..." : "DhanAI is ready";
+}
+
 // ---------- PERSONAL AI BRIEF (Paytm User workspace) ----------
 // Deterministic - fetched from GET /api/user/{customer_id}/brief, no LLM call involved.
+const USER_DEMO_NAMES = { CUST_A: "Bhuvi", CUST_B: "Bhuvi", CUST_C: "Bhuvi", CUST_D: "Bhuvi", CUST_E: "Bhuvi", CUST_F: "Bhuvi", CUST_G: "Bhuvi" };
+
 async function loadUserBrief(customerId) {
   const wrap = document.getElementById("userBriefWrap");
-  wrap.innerHTML = `<div class="panel-loading">Loading your brief</div>`;
+  const greet = document.getElementById("userGreetingTitle");
+  if (greet) greet.textContent = `Good morning, ${USER_DEMO_NAMES[customerId] || "there"}`;
+  wrap.innerHTML = `<div class="panel-loading"><div class="skeleton skeleton-line w-40"></div><div class="skeleton skeleton-line w-80"></div></div>`;
   try {
     const res = await fetch(`/api/user/${customerId}/brief`);
     const brief = await res.json();
@@ -357,21 +778,24 @@ let latestUserBrief = null;
 function renderUserBrief(brief) {
   latestUserBrief = brief;
   const wrap = document.getElementById("userBriefWrap");
+  const mockBalance = `<div class="balance-mock-amount">Rs.12,480.50</div><div class="balance-mock-label">DhanAI linked-account balance (demo figure, not a live bank balance)</div>`;
   if (!brief.has_data) {
-    wrap.innerHTML = `<h3>Your DhanAI Balance</h3><div class="panel-empty">${escapeHtml(brief.proactive_message)}</div>`;
+    wrap.innerHTML = `<h3>Your DhanAI Balance</h3>${mockBalance}<div class="brief-list-item" style="border-top:none; color:rgba(255,255,255,.85);">${escapeHtml(brief.proactive_message)}</div>`;
     renderUserTxnList(brief);
     return;
   }
   const s = brief.spend_summary;
 
   wrap.innerHTML = `
-    <h3>Spend Summary</h3>
+    <h3>Your DhanAI Balance</h3>
+    ${mockBalance}
     <div class="brief-message">${escapeHtml(brief.proactive_message)}</div>
     <div class="brief-stats">
       <div class="brief-stat"><div class="num">Rs.${Number(s.total_spend_7d).toLocaleString("en-IN")}</div><div class="label">Spend, 7d</div></div>
       <div class="brief-stat"><div class="num">Rs.${Number(s.total_spend_30d).toLocaleString("en-IN")}</div><div class="label">Spend, 30d</div></div>
       <div class="brief-stat"><div class="num">${s.transaction_count_30d}</div><div class="label">Txns, 30d</div></div>
-    </div>`;
+    </div>
+    <div class="demo-note">Demo balance shown for illustration &mdash; there is no live bank-balance endpoint in this build.</div>`;
   renderUserTxnList(brief);
 }
 
@@ -380,38 +804,60 @@ function renderUserBrief(brief) {
 // refund_status (already-resolved items) - no new backend endpoint invented.
 // Rows with an issue are tappable and open the assistant panel pre-filled with the
 // matching SCENARIOS complaint (matched by customer_id), reusing existing flows.
+// Each row also has a kebab menu offering "Ask DhanAI about this".
 function renderUserTxnList(brief) {
   if (!userTxnList) return;
   if (!brief.has_data) {
-    userTxnList.innerHTML = `<div class="panel-empty">No recent transactions.</div>`;
+    userTxnList.innerHTML = emptyStateHtml("No recent transactions", "Once you make a payment, it'll show up here.");
     return;
   }
-  const rows = [];
-  (brief.needs_attention || []).forEach(a => {
-    const isFailed = /failed/i.test(a.issue);
-    rows.push({
-      merchant: a.merchant_name, amount: a.amount, txn_id: a.txn_id,
-      sub: a.issue, badgeClass: isFailed ? "badge-red" : "badge-amber",
-      badgeText: isFailed ? "FAILED" : "PENDING",
-      actionable: true,
-    });
-  });
-  (brief.refund_status || []).forEach(r => {
-    rows.push({
-      merchant: r.merchant_name, amount: r.amount, txn_id: r.txn_id,
-      sub: `Refund ${r.status} · ETA ${r.eta_hours}h`, badgeClass: "badge-green",
-      badgeText: r.status === "COMPLETED" ? "REFUNDED" : "SUCCESS",
+
+  // Build a lookup so transactions that need attention or have an active refund get
+  // the richer status line + tap-to-ask behavior, while the full history (including
+  // plain successful payments) still renders underneath - a real transaction list,
+  // not just the flagged subset.
+  const attentionByTxnId = {};
+  (brief.needs_attention || []).forEach(a => { attentionByTxnId[a.txn_id] = a; });
+  const refundByTxnId = {};
+  (brief.refund_status || []).forEach(r => { refundByTxnId[r.txn_id] = r; });
+
+  const rows = (brief.recent_transactions || []).map(t => {
+    const attention = attentionByTxnId[t.txn_id];
+    const refund = refundByTxnId[t.txn_id];
+    if (attention) {
+      const isFailed = /failed/i.test(attention.issue);
+      return {
+        merchant: t.merchant_name, amount: t.amount, txn_id: t.txn_id,
+        sub: attention.issue, badgeClass: isFailed ? "badge-red" : "badge-amber",
+        badgeText: isFailed ? "FAILED" : "PENDING",
+        actionable: true,
+      };
+    }
+    if (refund) {
+      return {
+        merchant: t.merchant_name, amount: t.amount, txn_id: t.txn_id,
+        sub: `Refund ${refund.status} · ETA ${refund.eta_hours}h`, badgeClass: "badge-green",
+        badgeText: refund.status === "COMPLETED" ? "REFUNDED" : "SUCCESS",
+        actionable: false,
+      };
+    }
+    return {
+      merchant: t.merchant_name, amount: t.amount, txn_id: t.txn_id,
+      sub: new Date(t.timestamp).toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
+      badgeClass: t.status === "SUCCESS" ? "badge-green" : "badge-amber",
+      badgeText: t.status,
       actionable: false,
-    });
+    };
   });
 
   if (!rows.length) {
-    userTxnList.innerHTML = `<div class="panel-empty">No recent transactions need attention.</div>`;
+    userTxnList.innerHTML = emptyStateHtml("No recent transactions", "Once you make a payment, it'll show up here.");
     return;
   }
 
   userTxnList.innerHTML = rows.map((r, i) => `
     <div class="txn-row ${r.actionable ? "" : "not-actionable"}" data-idx="${i}" style="animation-delay:${i * 40}ms">
+      <span class="txn-icon"><svg><use href="#ic-shop"/></svg></span>
       <div class="txn-main">
         <div class="txn-merchant">${escapeHtml(r.merchant)}</div>
         <div class="txn-sub">${escapeHtml(r.sub)}</div>
@@ -420,18 +866,38 @@ function renderUserTxnList(brief) {
         <div class="txn-amount">Rs.${Number(r.amount).toLocaleString("en-IN")}</div>
         <span class="status-badge ${r.badgeClass}">${r.badgeText}</span>
       </div>
+      ${r.actionable ? `<button class="txn-kebab" data-kebab-idx="${i}" aria-label="More options"><svg><use href="#ic-kebab"/></svg></button>` : ""}
     </div>`).join("");
 
   userTxnList.querySelectorAll(".txn-row").forEach((el, i) => {
     if (!rows[i].actionable) return;
-    el.addEventListener("click", () => {
-      const scenario = SCENARIOS[currentCustomerId.replace("CUST_", "")];
-      openAssistOverlay(userAssistOverlay);
-      const complaint = scenario ? scenario.complaint :
-        `I have an issue with my Rs.${rows[i].amount} payment to ${rows[i].merchant} (${rows[i].sub}).`;
-      startRun(currentCustomerId, complaint);
+    el.addEventListener("click", (e) => {
+      if (e.target.closest(".txn-kebab")) return;
+      askAboutTxn(rows[i]);
     });
   });
+  userTxnList.querySelectorAll(".txn-kebab").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      askAboutTxn(rows[Number(btn.dataset.kebabIdx)]);
+    });
+  });
+}
+
+function emptyStateHtml(title, sub) {
+  return `<div class="empty-state">
+    <svg><use href="#ic-txn"/></svg>
+    <div class="empty-state-title">${escapeHtml(title)}</div>
+    <div class="empty-state-sub">${escapeHtml(sub)}</div>
+  </div>`;
+}
+
+function askAboutTxn(row) {
+  const scenario = SCENARIOS[currentCustomerId.replace("CUST_", "")];
+  openAssistOverlay(userAssistOverlay);
+  const complaint = scenario ? scenario.complaint :
+    `I have an issue with my Rs.${row.amount} payment to ${row.merchant} (${row.sub}).`;
+  startRun(currentCustomerId, complaint);
 }
 
 async function refreshStats() {
@@ -493,7 +959,7 @@ function renderInboxQueue(queue) {
             <div class="esc-card-title">${ticket.ticket_id} &middot; ${ticket.customer_id}</div>
             <div class="esc-card-sub">Handed off by the agent &mdash; awaiting human review</div>
           </div>
-          <span class="status-pill ESCALATED">ESCALATED</span>
+          <span class="pill ESCALATED">ESCALATED</span>
         </div>
         <div class="esc-field">
           <div class="esc-field-label">Why it was escalated</div>
@@ -512,7 +978,10 @@ function renderInboxQueue(queue) {
           <div class="esc-txns">${escapeHtml(txnRows)}</div>
         </div>
         <div class="esc-resolve">
-          <input type="text" placeholder="Resolution note (e.g. manually refunded after KYC check)..." />
+          <div class="esc-resolve-field">
+            <label for="resnote-${ticket.ticket_id}">Resolution note</label>
+            <input type="text" id="resnote-${ticket.ticket_id}" placeholder="e.g. manually refunded after KYC check..." />
+          </div>
           <button>Resolve</button>
         </div>
       </div>`;
@@ -534,6 +1003,7 @@ function renderInboxQueue(queue) {
       await loadInboxView();
       refreshInboxBadge();
       refreshStats();
+      showToast("Escalation resolved");
     });
   });
 }
@@ -571,12 +1041,16 @@ async function startRun(customerId, complaint) {
   addBubble("user", complaint);
   sendBtn.disabled = true;
   setStatus("running", "Running");
+  setAgentDrawerState("userAgentState", true);
   showTyping();
+
+  const attachments = attachmentsPayload(userAttachStore);
+  clearAttachStore(userAttachStore);
 
   const res = await fetch("/api/run", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ complaint, customer_id: customerId }),
+    body: JSON.stringify({ complaint, customer_id: customerId, attachments }),
   });
   const { run_id } = await res.json();
   pollEvents(run_id);
@@ -611,6 +1085,7 @@ function pollEvents(runId) {
       clearInterval(pollTimer);
       pollTimer = null;
       sendBtn.disabled = false;
+      setAgentDrawerState("userAgentState", false);
       const finalStatus = data.state.ticket && data.state.ticket.status;
       if (hadError) setStatus("escalated", "Error");
       else if (finalStatus === "ESCALATED") setStatus("escalated", "Escalated");
@@ -682,6 +1157,13 @@ function renderDecisionCard(events, state) {
       ? "<li>Escalation policy: high-value or ambiguous case routed to a human, not auto-resolved.</li>"
       : "<li>No guardrail was triggered - request was within all auto-resolution limits.</li>";
 
+  // Transaction/reference ID and human escalation status, sourced from the run's
+  // own state (ticket_id / refund_id already present in state.refunds), not invented.
+  const ticketId = state.ticket && state.ticket.ticket_id;
+  const refundEntries = Object.values(state.refunds || {});
+  const refundId = refundEntries.length ? refundEntries[0].refund_id : null;
+  const escalationStatus = wasEscalated ? "Escalated - awaiting human review" : "Not escalated - resolved autonomously";
+
   const card = document.createElement("div");
   card.className = "decision-card";
   card.id = "decisionCard";
@@ -694,6 +1176,8 @@ function renderDecisionCard(events, state) {
     <div class="decision-row"><div class="drk">Why</div><div class="drv">${escapeHtml(confidenceReason)}</div></div>
     <div class="decision-row"><div class="drk">Evidence</div><div class="drv"><ul>${evidence || "<li>No tool calls recorded.</li>"}</ul></div></div>
     <div class="decision-row"><div class="drk">Policy applied</div><div class="drv"><ul>${policyApplied}</ul></div></div>
+    ${ticketId ? `<div class="decision-row"><div class="drk">Reference ID</div><div class="drv">${escapeHtml(ticketId)}${refundId ? ` &middot; ${escapeHtml(refundId)}` : ""}</div></div>` : ""}
+    <div class="decision-row"><div class="drk">Escalation status</div><div class="drv">${escapeHtml(escalationStatus)}</div></div>
     <div class="decision-row"><div class="drk">Final message</div><div class="drv">${escapeHtml(finalText || "-")}</div></div>
   `;
   activityBody.appendChild(card);
@@ -723,6 +1207,20 @@ document.querySelectorAll(".preset-btn[data-scenario]").forEach(btn => {
   });
 });
 
+// Suggested prompt chips insert (and send) their text.
+document.querySelectorAll("#userPromptChips .prompt-chip").forEach(chip => {
+  chip.addEventListener("click", () => {
+    openAssistOverlay(userAssistOverlay);
+    startRun(currentCustomerId, chip.dataset.prompt);
+  });
+});
+document.querySelectorAll(".help-chip[data-help-prompt]").forEach(chip => {
+  chip.addEventListener("click", () => {
+    openAssistOverlay(userAssistOverlay);
+    startRun(currentCustomerId, chip.dataset.helpPrompt);
+  });
+});
+
 resetBtn.addEventListener("click", async () => {
   if (pollTimer) clearInterval(pollTimer);
   await fetch("/api/reset", { method: "POST" });
@@ -737,7 +1235,9 @@ resetBtn.addEventListener("click", async () => {
   refreshStats();
   refreshInboxBadge();
   loadUserBrief(currentCustomerId);
+  showToast("Demo state reset");
 });
+document.getElementById("sbUserReset")?.addEventListener("click", () => resetBtn.click());
 
 // ---------- Paytm User home dashboard wiring ----------
 userAskAiFab.addEventListener("click", () => openAssistOverlay(userAssistOverlay));
@@ -752,15 +1252,28 @@ qaRefundHelp.addEventListener("click", () => {
   startRun(currentCustomerId, complaint);
 });
 
-// ---------- Paytm User bottom nav ----------
+// ---------- Paytm User sidebar (desktop) ----------
+document.getElementById("sbUserHome").addEventListener("click", () => { closeAssistOverlay(userAssistOverlay); setActiveSidebarItem(["sbUserHome","sbUserPayments","sbUserBills","sbUserAssistant","sbUserSupport","sbUserActivity"], "sbUserHome"); });
+document.getElementById("sbUserPayments").addEventListener("click", () => openAssistOverlay(userAssistOverlay));
+document.getElementById("sbUserBills").addEventListener("click", () => openAssistOverlay(userAssistOverlay));
+document.getElementById("sbUserAssistant").addEventListener("click", () => openAssistOverlay(userAssistOverlay));
+document.getElementById("sbUserSupport").addEventListener("click", () => openAssistOverlay(userAssistOverlay));
+document.getElementById("sbUserActivity").addEventListener("click", () => openInbox());
+document.getElementById("sbUserActivity2")?.addEventListener("click", () => openInbox());
+document.getElementById("sbUserSwitchRole").addEventListener("click", () => backBtn.click());
+document.getElementById("sbUserSettings").addEventListener("click", () => showToast("Settings coming soon in this demo"));
+
+// ---------- Paytm User bottom nav (5-tab: Home / Activity / Ask DhanAI / Insights / Profile) ----------
 const userNavHome = document.getElementById("userNavHome");
+const userNavActivity = document.getElementById("userNavActivity");
 const userNavAskAi = document.getElementById("userNavAskAi");
-const userNavInbox = document.getElementById("userNavInbox");
+const userNavInsights = document.getElementById("userNavInsights");
 const userNavProfile = document.getElementById("userNavProfile");
 
 userNavHome.addEventListener("click", () => closeAssistOverlay(userAssistOverlay));
+userNavActivity.addEventListener("click", () => openInbox());
 userNavAskAi.addEventListener("click", () => openAssistOverlay(userAssistOverlay));
-userNavInbox.addEventListener("click", () => openInbox());
+userNavInsights.addEventListener("click", () => openAssistOverlay(userAssistOverlay));
 userNavProfile.addEventListener("click", () => backBtn.click());
 
 userScenarioToggle.addEventListener("click", () => {
@@ -814,16 +1327,16 @@ async function backToLanding() {
 // routes into the same workspace-opening functions the role cards used to call
 // directly, so the dashboard-first interaction model is unchanged past this point.
 const ROLE_LOGIN_CONFIG = {
-  user: { icon: "&#128100;", title: "Login as Paytm User", open: () => { openConsole(); refreshStats(); refreshInboxBadge(); } },
-  merchant: { icon: "&#127974;", title: "Login as Merchant", open: () => { openMerchant(); } },
-  business: { icon: "&#128200;", title: "Login as Business Owner", open: () => { openSales(); } },
+  user: { icon: "#ic-user", title: "Login as Paytm User", open: () => { openConsole(); refreshStats(); refreshInboxBadge(); } },
+  merchant: { icon: "#ic-shop", title: "Login as Merchant", open: () => { openMerchant(); } },
+  business: { icon: "#ic-growth", title: "Login as Business Owner", open: () => { openSales(); } },
 };
 let pendingLoginRole = "user";
 
 function openLogin(role) {
   pendingLoginRole = role;
   const cfg = ROLE_LOGIN_CONFIG[role] || ROLE_LOGIN_CONFIG.user;
-  loginRoleIcon.innerHTML = cfg.icon;
+  loginRoleIcon.innerHTML = `<svg><use href="${cfg.icon}"/></svg>`;
   loginRoleTitle.textContent = cfg.title;
   loginForm.reset();
   landing.classList.add("fade-out");
@@ -862,6 +1375,65 @@ const revealObserver = new IntersectionObserver((entries) => {
 
 document.querySelectorAll(".reveal").forEach(el => revealObserver.observe(el));
 
+// ---------- LANDING: header/hero CTAs + final CTA role links ----------
+// These are new landing-only controls layered on top of the existing role-card
+// routing above; they never duplicate the routing logic, only call into it.
+(function () {
+  const scrollToId = (id) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const openDhanAiBtn = document.getElementById("openDhanAiBtn");
+  const heroChooseWorkspaceBtn = document.getElementById("heroChooseWorkspaceBtn");
+  const heroWatchDemoBtn = document.getElementById("heroWatchDemoBtn");
+  const finalCtaBtn = document.getElementById("finalCtaBtn");
+  const demoPanel = document.getElementById("demoPanel");
+
+  if (openDhanAiBtn) openDhanAiBtn.addEventListener("click", () => scrollToId("workspace-select"));
+  if (heroChooseWorkspaceBtn) heroChooseWorkspaceBtn.addEventListener("click", () => scrollToId("workspace-select"));
+  if (finalCtaBtn) finalCtaBtn.addEventListener("click", () => scrollToId("workspace-select"));
+  if (heroWatchDemoBtn && demoPanel) {
+    heroWatchDemoBtn.addEventListener("click", () => {
+      demoPanel.scrollIntoView({ behavior: "smooth", block: "center" });
+      demoPanel.classList.add("demo-panel-highlight");
+      setTimeout(() => demoPanel.classList.remove("demo-panel-highlight"), 900);
+    });
+  }
+
+  // Final CTA section's small role links reuse the exact same openLogin() routing
+  // path as the main workspace-selector cards - no separate implementation.
+  const finalRoleUser = document.getElementById("finalRoleUser");
+  const finalRoleMerchant = document.getElementById("finalRoleMerchant");
+  const finalRoleBusiness = document.getElementById("finalRoleBusiness");
+  if (finalRoleUser) finalRoleUser.addEventListener("click", () => openLogin("user"));
+  if (finalRoleMerchant) finalRoleMerchant.addEventListener("click", () => openLogin("merchant"));
+  if (finalRoleBusiness) finalRoleBusiness.addEventListener("click", () => openLogin("business"));
+
+  // Demo panel step progression: a lightweight, self-contained visual loop for the
+  // static hero "DhanAI in action" panel - not wired to any real backend call.
+  const steps = document.querySelectorAll("#demoSteps .demo-step");
+  const prefersReducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (steps.length) {
+    if (prefersReducedMotion) {
+      steps.forEach(s => s.classList.add("done"));
+    } else {
+      let i = 0;
+      const revealNext = () => {
+        steps.forEach(s => s.classList.remove("done", "active"));
+        for (let j = 0; j <= i; j++) steps[j].classList.add("done");
+        i = (i + 1) % steps.length;
+        if (i === 0) {
+          setTimeout(() => { steps.forEach(s => s.classList.remove("done")); revealNext(); }, 1400);
+        } else {
+          setTimeout(revealNext, 900);
+        }
+      };
+      revealNext();
+    }
+  }
+})();
+
 // ---------- SALES TEAMMATE ----------
 
 function setSalesStatus(kind, label) {
@@ -889,13 +1461,14 @@ async function loadLeadPresets() {
   });
 
   renderLeadListCards(data.leads);
+  renderSalesTrendChart(data.leads);
 }
 
 // ---------- Business Owner home: recovery lead cards ----------
 function renderLeadListCards(leads) {
   if (!leadListCards) return;
   if (!leads.length) {
-    leadListCards.innerHTML = `<div class="panel-empty">No recovery leads right now.</div>`;
+    leadListCards.innerHTML = emptyStateHtml("No recovery leads right now", "DhanAI will surface new leads here as they appear.");
     return;
   }
   leadListCards.innerHTML = leads.map((l, i) => `
@@ -918,6 +1491,25 @@ function renderLeadListCards(leads) {
   });
 }
 
+// ---------- Business Owner: hand-rolled CSS/SVG bar chart of leads by status ----------
+function renderSalesTrendChart(leads) {
+  const el = document.getElementById("salesTrendChart");
+  if (!el) return;
+  if (!leads || !leads.length) {
+    el.innerHTML = emptyStateHtml("No lead data yet", "Chart will populate once leads are loaded.");
+    return;
+  }
+  const byStatus = {};
+  leads.forEach(l => { byStatus[l.checkout_status] = (byStatus[l.checkout_status] || 0) + Number(l.cart_value); });
+  const max = Math.max(...Object.values(byStatus), 1);
+  el.innerHTML = Object.entries(byStatus).map(([status, value]) => `
+    <div class="bar-chart-col">
+      <div class="bar-chart-value">Rs.${Number(value).toLocaleString("en-IN")}</div>
+      <div class="bar-chart-bar" style="height:${Math.max(6, Math.round((value / max) * 100))}px"></div>
+      <div class="bar-chart-label">${escapeHtml(status)}</div>
+    </div>`).join("");
+}
+
 function renderLeadPreview(lead) {
   leadBody.innerHTML = `
     <div class="bubble agent">
@@ -938,7 +1530,9 @@ async function startSalesRun(leadId, customerId, cartValue) {
   salesActivityBody.innerHTML = "";
   typingCardRefs.salesTypingCardEl = null;
   setSalesStatus("running", "Running");
+  setAgentDrawerState("salesAgentState", true);
   showTyping(salesActivityBody, "salesTypingCardEl");
+  clearAttachStore(salesAttachStore);
 
   const res = await fetch("/api/sales/run", {
     method: "POST",
@@ -973,6 +1567,7 @@ function pollSalesEvents(runId) {
     if (data.done) {
       clearInterval(salesPollTimer);
       salesPollTimer = null;
+      setAgentDrawerState("salesAgentState", false);
       const status = data.state.lead_record && data.state.lead_record.status;
       if (hadError) setSalesStatus("escalated", "Error");
       else if (status === "COUPON_OFFERED") setSalesStatus("resolved", "Coupon Offered");
@@ -980,12 +1575,43 @@ function pollSalesEvents(runId) {
       if (!hadError) {
         const blocked = currentSalesRunEvents.filter(e => e.type === "guardrail_block");
         updateImpactFromRun(currentLeadCartValue, data.state, blocked);
+        renderOutcomeCard(currentLeadId, currentSalesRunEvents, data.state, currentLeadCartValue);
       }
       loadBusinessBrief();
     } else {
       showTyping(salesActivityBody, "salesTypingCardEl");
     }
   }, 400);
+}
+
+// ---------- Campaign outcome card ----------
+// Parses the completed run's own event stream (same pattern as the User workspace's
+// Decision Card) - customer/lead, recommended action, coupon issued/withheld with the
+// actual guardrail reason when withheld, estimated recovery value, message status.
+function renderOutcomeCard(leadId, events, state, cartValue) {
+  const existing = document.getElementById(`outcome-${leadId}`);
+  if (existing) existing.remove();
+
+  const messageSent = events.find(e => e.type === "message_sent");
+  const couponBlocked = events.find(e => e.type === "guardrail_block" && e.tool === "issue_discount_coupon");
+  const coupon = state.coupon;
+
+  const card = document.createElement("div");
+  card.className = "outcome-card";
+  card.id = `outcome-${leadId}`;
+  card.innerHTML = `
+    <div class="outcome-row">
+      <span class="outcome-lead">${escapeHtml(leadId)}</span>
+      <span class="pill ${coupon ? "pill-success" : couponBlocked ? "pill-danger" : "pill-info"}">${coupon ? "Coupon issued" : couponBlocked ? "Coupon withheld" : "No coupon needed"}</span>
+    </div>
+    <div class="outcome-field"><b>Recommended action:</b> ${messageSent ? "Send win-back message" : "Update lead record"}</div>
+    ${coupon ? `<div class="outcome-field"><b>Coupon:</b> ${escapeHtml(coupon.coupon_code)} &middot; ${coupon.discount_pct}% off</div>` : ""}
+    ${couponBlocked ? `<div class="outcome-field"><b>Guardrail reason:</b> ${escapeHtml(renderJson(couponBlocked.result))}</div>` : ""}
+    <div class="outcome-field"><b>Est. recovery value:</b> Rs.${Number(cartValue).toLocaleString("en-IN")}</div>
+    <div class="outcome-field"><b>Message status:</b> ${messageSent ? "Sent" : "Pending"}</div>
+  `;
+  leadBody.appendChild(card);
+  maybeAutoscroll(leadBody);
 }
 
 function renderSalesState(state) {
@@ -1026,7 +1652,7 @@ function renderSalesState(state) {
 // Deterministic - fetched from GET /api/business/{business_id}/brief, no LLM call involved.
 async function loadBusinessBrief() {
   const wrap = document.getElementById("businessBriefWrap");
-  wrap.innerHTML = `<div class="panel-loading">Loading your brief</div>`;
+  wrap.innerHTML = `<div class="panel-loading"><div class="skeleton skeleton-line w-40"></div><div class="skeleton skeleton-line w-80"></div></div>`;
   try {
     const res = await fetch(`/api/business/default/brief`);
     const brief = await res.json();
@@ -1060,9 +1686,10 @@ function renderBusinessBrief(brief) {
     <div class="brief-list-item">Discount protected so far: Rs.${Number(cd.estimated_discount_protected).toLocaleString("en-IN")} (guardrail: max ${cd.max_discount_pct}%, ${cd.max_coupons_per_customer} coupon/customer)</div>`;
 }
 
-// ---------- IMPACT CARD ----------
+// ---------- IMPACT CARD / CAMPAIGN PERFORMANCE ----------
 // Running tally for this session, built only from confirmed tool results (coupons
 // actually issued, messages actually sent) - not projected or guessed numbers.
+// Presented as "Campaign Performance" per the Business Owner spec - same real numbers.
 let impactTotals = { leadsContacted: 0, couponsIssued: 0, revenueRecovered: 0, discountProtected: 0 };
 
 function resetImpactCard() {
@@ -1073,7 +1700,7 @@ function resetImpactCard() {
 function renderImpactCard() {
   const box = document.getElementById("impactCardBox");
   box.innerHTML = `
-    <h3>Revenue Impact</h3>
+    <h3>Campaign Performance</h3>
     <div class="impact-grid">
       <div class="impact-stat"><div class="num">${impactTotals.leadsContacted}</div><div class="label">Leads contacted</div></div>
       <div class="impact-stat"><div class="num">${impactTotals.couponsIssued}</div><div class="label">Coupons issued</div></div>
@@ -1102,7 +1729,7 @@ function openSales() {
   hideAllWorkspaces();
   salesView.classList.remove("hidden");
   document.body.classList.add("console-active");
-  if (latestLeads.length) renderLeadListCards(latestLeads);
+  if (latestLeads.length) { renderLeadListCards(latestLeads); renderSalesTrendChart(latestLeads); }
   else loadLeadPresets();
   loadBusinessBrief();
   resetImpactCard();
@@ -1125,15 +1752,64 @@ salesAssistClose.addEventListener("click", () => closeAssistOverlay(salesAssistO
 salesExplainToggle.addEventListener("click", () => toggleExplain(salesExplainToggle, salesExplainWrap));
 qaBizAskAi.addEventListener("click", () => openAssistOverlay(salesAssistOverlay));
 
+document.querySelectorAll("#salesPromptChips .prompt-chip").forEach(chip => {
+  chip.addEventListener("click", () => {
+    openAssistOverlay(salesAssistOverlay);
+    if (latestLeads.length) { renderLeadPreview(latestLeads[0]); }
+  });
+});
+
+// Quick actions: Recover failed payments / Customer insights just surface the leads list + drawer.
+document.getElementById("qaBizRecover").addEventListener("click", () => {
+  openAssistOverlay(salesAssistOverlay);
+  leadListCards.scrollIntoView({ behavior: "smooth" });
+});
+document.getElementById("qaBizInsights").addEventListener("click", () => openAssistOverlay(salesAssistOverlay));
+
+// Create a controlled offer / Send payment reminder: these trigger a REAL simulated
+// win-back run against the first available lead, so they go through the confirmation
+// modal first (policy requires confirmation before a real simulated money-moving action).
+document.getElementById("qaBizOffer").addEventListener("click", async () => {
+  if (!latestLeads.length) { showToast("No leads available right now"); return; }
+  const lead = latestLeads[0];
+  const ok = await askConfirm("Create a controlled offer?", `DhanAI will check coupon eligibility for ${lead.lead_id} (${lead.merchant_name}) under existing guardrails and issue a coupon only if policy allows it. Proceed?`);
+  if (!ok) return;
+  openAssistOverlay(salesAssistOverlay);
+  renderLeadPreview(lead);
+  startSalesRun(lead.lead_id, lead.customer_id, lead.cart_value);
+});
+document.getElementById("qaBizReminder").addEventListener("click", async () => {
+  if (!latestLeads.length) { showToast("No leads available right now"); return; }
+  const lead = latestLeads[0];
+  const ok = await askConfirm("Send payment reminder?", `DhanAI will run its win-back flow for ${lead.lead_id} (${lead.merchant_name}), which may send a retry-nudge message. Proceed?`);
+  if (!ok) return;
+  openAssistOverlay(salesAssistOverlay);
+  renderLeadPreview(lead);
+  startSalesRun(lead.lead_id, lead.customer_id, lead.cart_value);
+});
+
+// ---------- Business Owner sidebar (desktop) ----------
+document.getElementById("sbBizOverview").addEventListener("click", () => closeAssistOverlay(salesAssistOverlay));
+document.getElementById("sbBizRevenue").addEventListener("click", () => document.getElementById("impactCardBox").scrollIntoView({ behavior: "smooth" }));
+document.getElementById("sbBizCustomers").addEventListener("click", () => leadListCards.scrollIntoView({ behavior: "smooth" }));
+document.getElementById("sbBizCampaigns").addEventListener("click", () => leadListCards.scrollIntoView({ behavior: "smooth" }));
+document.getElementById("sbBizAssistant").addEventListener("click", () => openAssistOverlay(salesAssistOverlay));
+document.getElementById("sbBizReports").addEventListener("click", () => document.getElementById("impactCardBox").scrollIntoView({ behavior: "smooth" }));
+document.getElementById("sbBizSwitchRole").addEventListener("click", () => salesBackBtn.click());
+document.getElementById("sbBizSettings").addEventListener("click", () => showToast("Settings coming soon in this demo"));
+document.getElementById("sbBizReset").addEventListener("click", () => salesResetBtn.click());
+
 // ---------- Business Owner bottom nav ----------
 const salesNavHome = document.getElementById("salesNavHome");
+const salesNavActivity = document.getElementById("salesNavActivity");
 const salesNavAskAi = document.getElementById("salesNavAskAi");
-const salesNavInbox = document.getElementById("salesNavInbox");
+const salesNavInsights = document.getElementById("salesNavInsights");
 const salesNavProfile = document.getElementById("salesNavProfile");
 
 salesNavHome.addEventListener("click", () => closeAssistOverlay(salesAssistOverlay));
+salesNavActivity.addEventListener("click", () => openInbox());
 salesNavAskAi.addEventListener("click", () => openAssistOverlay(salesAssistOverlay));
-salesNavInbox.addEventListener("click", () => openInbox());
+salesNavInsights.addEventListener("click", () => document.getElementById("impactCardBox").scrollIntoView({ behavior: "smooth" }));
 salesNavProfile.addEventListener("click", () => salesBackBtn.click());
 
 salesResetBtn.addEventListener("click", async () => {
@@ -1149,6 +1825,7 @@ salesResetBtn.addEventListener("click", async () => {
   loadBusinessBrief();
   resetImpactCard();
   closeAssistOverlay(salesAssistOverlay);
+  showToast("Demo state reset");
 });
 
 // ---------- RECONCILIATION TEAMMATE ----------
@@ -1259,6 +1936,7 @@ reconResetBtn.addEventListener("click", async () => {
   setReconStatus("", "Idle");
   renderReconState({ transactions: [] }, null);
   document.getElementById("reconSummaryBox").innerHTML = `<h3>Last Sweep</h3><div class="kv">No sweep run yet</div>`;
+  showToast("Demo state reset");
 });
 
 // ---------- MERCHANT WORKSPACE ----------
@@ -1298,12 +1976,15 @@ function selectMerchant(merchantId) {
   merchantChatBody.innerHTML = "";
   merchantActivityBody.innerHTML = "";
   typingCardRefs.merchantTypingCardEl = null;
+  const merchant = merchantList.find(m => m.merchant_id === merchantId);
+  const greet = document.getElementById("merchantGreetingTitle");
+  if (greet && merchant) greet.textContent = `Good morning, ${merchant.owner_name}`;
   loadMerchantBrief(merchantId);
   loadMerchantState(merchantId);
 }
 
 async function loadMerchantBrief(merchantId) {
-  merchantBriefWrap.innerHTML = `<div class="panel-loading">Loading merchant brief</div>`;
+  merchantBriefWrap.innerHTML = `<div class="panel-loading"><div class="skeleton skeleton-line w-40"></div><div class="skeleton skeleton-line w-80"></div></div>`;
   try {
     const merchant = merchantList.find(m => m.merchant_id === merchantId);
     const stateRes = await fetch(`/api/merchant/${merchantId}/state`);
@@ -1318,6 +1999,8 @@ function renderMerchantBriefFromState(merchant, state) {
   if (!merchant) {
     merchantBriefWrap.innerHTML = `<div class="panel-empty">Select a merchant above.</div>`;
     renderMerchantTxnList(state);
+    renderMerchantStats(state);
+    renderMerchantTrendChart(state);
     return;
   }
   const txns = (state && state.transactions) || [];
@@ -1332,8 +2015,59 @@ function renderMerchantBriefFromState(merchant, state) {
       <div class="brief-stat"><div class="num">${pendingCount}</div><div class="label">Pending/unverified</div></div>
       <div class="brief-stat"><div class="num">${txns.length}</div><div class="label">Transactions</div></div>
     </div>
-    <div class="brief-list-item">Run a settlement sweep or ask a question via Ask AI to investigate and act.</div>`;
+    <div class="brief-list-item">Run a settlement sweep or ask a question via Ask DhanAI to investigate and act.</div>`;
   renderMerchantTxnList(state);
+  renderMerchantStats(state);
+  renderMerchantTrendChart(state);
+}
+
+// Today's collection amount / txn count / pending settlement amount, derived client-side
+// from the merchant's own transaction list (extends the existing renderMerchantBriefFromState logic).
+function renderMerchantStats(state) {
+  const row = document.getElementById("merchantStatRow");
+  const etaEl = document.getElementById("merchantEtaValue");
+  if (!row) return;
+  const txns = (state && state.transactions || []).filter(Boolean);
+  const todaysCollection = txns.reduce((sum, t) => sum + Number(t.amount), 0);
+  const pendingTxns = txns.filter(t => (t.settlement_status || "PENDING") === "PENDING");
+  const pendingAmount = pendingTxns.reduce((sum, t) => sum + Number(t.amount), 0);
+
+  row.innerHTML = `
+    <div class="stat-card">
+      <span class="stat-card-icon"><svg><use href="#ic-txn"/></svg></span>
+      <div class="num">Rs.${Number(todaysCollection).toLocaleString("en-IN")}</div>
+      <div class="label">Today's collections</div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-card-icon"><svg><use href="#ic-activity"/></svg></span>
+      <div class="num">${txns.length}</div>
+      <div class="label">Transaction count</div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-card-icon"><svg><use href="#ic-sweep"/></svg></span>
+      <div class="num">Rs.${Number(pendingAmount).toLocaleString("en-IN")}</div>
+      <div class="label">Pending settlement</div>
+    </div>`;
+  if (etaEl) etaEl.textContent = pendingTxns.length > 0 ? "Within 24h" : "All settled";
+}
+
+// Hand-rolled CSS/SVG bar chart of collection amounts by transaction (simple, illustrative).
+function renderMerchantTrendChart(state) {
+  const el = document.getElementById("merchantTrendChart");
+  if (!el) return;
+  const txns = (state && state.transactions || []).filter(Boolean);
+  if (!txns.length) {
+    el.innerHTML = emptyStateHtml("No transactions yet", "Run a sweep to populate the trend.");
+    return;
+  }
+  const values = txns.slice(0, 8).map(t => Number(t.amount));
+  const max = Math.max(...values, 1);
+  el.innerHTML = txns.slice(0, 8).map((t, i) => `
+    <div class="bar-chart-col">
+      <div class="bar-chart-value">Rs.${Number(t.amount).toLocaleString("en-IN")}</div>
+      <div class="bar-chart-bar" style="height:${Math.max(6, Math.round((values[i] / max) * 100))}px"></div>
+      <div class="bar-chart-label">${escapeHtml(t.mtxn_id || `#${i+1}`)}</div>
+    </div>`).join("");
 }
 
 async function loadMerchantState(merchantId) {
@@ -1342,6 +2076,8 @@ async function loadMerchantState(merchantId) {
     const state = await res.json();
     renderMerchantTxnBox(state);
     renderMerchantTxnList(state);
+    renderMerchantStats(state);
+    renderMerchantTrendChart(state);
   } catch (e) {
     renderMerchantTxnBox({ transactions: [] });
     renderMerchantTxnList({ transactions: [] });
@@ -1353,7 +2089,7 @@ function renderMerchantTxnList(state) {
   if (!merchantTxnList) return;
   const txns = (state && state.transactions || []).filter(Boolean);
   if (!txns.length) {
-    merchantTxnList.innerHTML = `<div class="panel-empty">No data yet &mdash; run a sweep or ask a question.</div>`;
+    merchantTxnList.innerHTML = emptyStateHtml("No data yet", "Run a sweep or ask a question to populate this list.");
     return;
   }
   merchantTxnList.innerHTML = txns.map((t, i) => {
@@ -1361,6 +2097,7 @@ function renderMerchantTxnList(state) {
     const badgeClass = settlement === "SETTLED" ? "badge-green" : settlement === "PENDING" ? "badge-amber" : "badge-red";
     return `
     <div class="txn-row not-actionable" style="animation-delay:${i * 40}ms">
+      <span class="txn-icon"><svg><use href="#ic-shop"/></svg></span>
       <div class="txn-main">
         <div class="txn-merchant">${escapeHtml(t.payer_name)}</div>
         <div class="txn-sub">${t.mtxn_id} &middot; collected: ${t.collection_status}</div>
@@ -1412,7 +2149,7 @@ function renderMerchantExceptions(events) {
   }
 }
 
-// --- Proactive sweep ---
+// --- Proactive sweep, presented as a readable step timeline with a technical-details toggle ---
 async function startMerchantSweep() {
   if (!currentMerchantId) return;
   merchantSweepRenderedCount = 0;
@@ -1420,6 +2157,7 @@ async function startMerchantSweep() {
   typingCardRefs.merchantTypingCardEl = null;
   merchantSweepBtn.disabled = true;
   setMerchantStatus("running", "Sweeping");
+  setAgentDrawerState("merchantAgentState", true);
   showTyping(merchantActivityBody, "merchantTypingCardEl");
 
   const res = await fetch(`/api/merchant/${currentMerchantId}/sweep`, { method: "POST" });
@@ -1428,6 +2166,7 @@ async function startMerchantSweep() {
     merchantActivityBody.innerHTML = `<div class="panel-error">${escapeHtml(error)}</div>`;
     merchantSweepBtn.disabled = false;
     setMerchantStatus("", "Idle");
+    setAgentDrawerState("merchantAgentState", false);
     return;
   }
   pollMerchantSweepEvents(run_id);
@@ -1460,11 +2199,14 @@ function pollMerchantSweepEvents(runId) {
     renderMerchantTxnBox(data.state);
     renderMerchantExceptions(allEvents);
     renderMerchantSweepSummary(summary);
+    renderMerchantStats(data.state);
+    renderMerchantTrendChart(data.state);
 
     if (data.done) {
       clearInterval(merchantSweepPollTimer);
       merchantSweepPollTimer = null;
       merchantSweepBtn.disabled = false;
+      setAgentDrawerState("merchantAgentState", false);
       if (hadError) setMerchantStatus("escalated", "Error");
       else setMerchantStatus("resolved", "Sweep Complete");
       refreshInboxBadge();
@@ -1507,18 +2249,23 @@ async function startMerchantQuery(question) {
   addMerchantBubble("user", question);
   merchantQuerySendBtn.disabled = true;
   setMerchantStatus("running", "Investigating");
+  setAgentDrawerState("merchantAgentState", true);
   showTyping(merchantActivityBody, "merchantTypingCardEl");
+
+  const attachments = attachmentsPayload(merchantAttachStore);
+  clearAttachStore(merchantAttachStore);
 
   const res = await fetch("/api/merchant/query", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ merchant_id: currentMerchantId, question }),
+    body: JSON.stringify({ merchant_id: currentMerchantId, question, attachments }),
   });
   const { run_id, error } = await res.json();
   if (error) {
     addMerchantBubble("agent", error);
     merchantQuerySendBtn.disabled = false;
     setMerchantStatus("", "Idle");
+    setAgentDrawerState("merchantAgentState", false);
     return;
   }
   pollMerchantQueryEvents(run_id);
@@ -1550,11 +2297,14 @@ function pollMerchantQueryEvents(runId) {
     merchantRenderedCount += data.events.length;
     renderMerchantTxnBox(data.state);
     renderMerchantExceptions(allEvents);
+    renderMerchantStats(data.state);
+    renderMerchantTrendChart(data.state);
 
     if (data.done) {
       clearInterval(merchantPollTimer);
       merchantPollTimer = null;
       merchantQuerySendBtn.disabled = false;
+      setAgentDrawerState("merchantAgentState", false);
       if (hadError) setMerchantStatus("escalated", "Error");
       else if (allEvents.some(e => e.type === "escalation")) setMerchantStatus("escalated", "Escalated");
       else setMerchantStatus("resolved", "Resolved");
@@ -1579,7 +2329,44 @@ merchantQueryInput.addEventListener("keydown", (e) => {
   }
 });
 
+document.querySelectorAll("#merchantPromptChips .prompt-chip").forEach(chip => {
+  chip.addEventListener("click", () => startMerchantQuery(chip.dataset.prompt));
+});
+
 merchantSweepBtn.addEventListener("click", startMerchantSweep);
+
+// ---------- Merchant quick actions: settlement report export (real CSV, client-side) ----------
+document.getElementById("qaDownloadReport").addEventListener("click", async () => {
+  if (!currentMerchantId) { showToast("Select a merchant first"); return; }
+  try {
+    const res = await fetch(`/api/merchant/${currentMerchantId}/state`);
+    const state = await res.json();
+    const txns = (state.transactions || []).filter(Boolean);
+    const header = "mtxn_id,payer_name,amount,collection_status,settlement_status,refund_id\n";
+    const rows = txns.map(t => [t.mtxn_id, t.payer_name, t.amount, t.collection_status, t.settlement_status || "", t.refund_id || ""].join(",")).join("\n");
+    const blob = new Blob([header + rows], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${currentMerchantId}_settlement_report.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast("Report downloaded");
+  } catch (e) {
+    showToast("Couldn't generate report");
+  }
+});
+
+document.getElementById("qaDeviceIssue").addEventListener("click", () => {
+  openAssistOverlay(merchantAssistOverlay);
+  startMerchantQuery("I'm having a QR code / payment device issue and need help checking recent collections.");
+});
+document.getElementById("qaDispute").addEventListener("click", () => {
+  openAssistOverlay(merchantAssistOverlay);
+  startMerchantQuery("I want to raise a dispute about one of my recent settlements.");
+});
 
 function openMerchant() {
   landing.classList.add("hidden");
@@ -1620,6 +2407,7 @@ merchantResetBtn.addEventListener("click", async () => {
   if (currentMerchantId) loadMerchantBrief(currentMerchantId);
   refreshInboxBadge();
   closeAssistOverlay(merchantAssistOverlay);
+  showToast("Demo state reset");
 });
 
 // ---------- Merchant home dashboard wiring ----------
@@ -1634,13 +2422,26 @@ qaRunSweep.addEventListener("click", () => {
 });
 qaGoRecon.addEventListener("click", () => openRecon());
 
+// ---------- Merchant sidebar (desktop) ----------
+document.getElementById("sbMerchOverview").addEventListener("click", () => closeAssistOverlay(merchantAssistOverlay));
+document.getElementById("sbMerchTxns").addEventListener("click", () => merchantTxnList.scrollIntoView({ behavior: "smooth" }));
+document.getElementById("sbMerchSettlements").addEventListener("click", () => document.getElementById("merchantSettlementEtaCard").scrollIntoView({ behavior: "smooth" }));
+document.getElementById("sbMerchRecon").addEventListener("click", () => openRecon());
+document.getElementById("sbMerchAssistant").addEventListener("click", () => openAssistOverlay(merchantAssistOverlay));
+document.getElementById("sbMerchSupport").addEventListener("click", () => openAssistOverlay(merchantAssistOverlay));
+document.getElementById("sbMerchSwitchRole").addEventListener("click", () => merchantBackBtn.click());
+document.getElementById("sbMerchSettings").addEventListener("click", () => showToast("Settings coming soon in this demo"));
+document.getElementById("sbMerchReset").addEventListener("click", () => merchantResetBtn.click());
+
 // ---------- Merchant bottom nav ----------
 const merchantNavHome = document.getElementById("merchantNavHome");
+const merchantNavActivity = document.getElementById("merchantNavActivity");
 const merchantNavAskAi = document.getElementById("merchantNavAskAi");
-const merchantNavInbox = document.getElementById("merchantNavInbox");
+const merchantNavInsights = document.getElementById("merchantNavInsights");
 const merchantNavProfile = document.getElementById("merchantNavProfile");
 
 merchantNavHome.addEventListener("click", () => closeAssistOverlay(merchantAssistOverlay));
+merchantNavActivity.addEventListener("click", () => openInbox());
 merchantNavAskAi.addEventListener("click", () => openAssistOverlay(merchantAssistOverlay));
-merchantNavInbox.addEventListener("click", () => openInbox());
+merchantNavInsights.addEventListener("click", () => document.getElementById("merchantTrendCard").scrollIntoView({ behavior: "smooth" }));
 merchantNavProfile.addEventListener("click", () => merchantBackBtn.click());

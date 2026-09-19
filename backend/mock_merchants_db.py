@@ -117,6 +117,42 @@ MERCHANT_BANK_SETTLEMENT_RECORDS = {
 }
 
 
+def _make_merchant_filler(merchant_id: str, mtxn_id_prefix: str, entries: list[tuple]) -> None:
+    """entries: list of (payer_name, amount, days_ago, hours_ago) tuples, all COLLECTED/SETTLED.
+    Cosmetic history filler so each merchant's dashboard shows a realistic collections
+    history, not just their one sweep-scenario transaction. Never referenced by any
+    sweep scenario's expected agent behavior."""
+    for i, (payer, amount, days_ago, hours_ago) in enumerate(entries, start=1):
+        mtxn_id = f"{mtxn_id_prefix}{i:02d}"
+        bank_ref = f"MBANKREF_{mtxn_id}"
+        MERCHANT_TRANSACTIONS[mtxn_id] = {
+            "mtxn_id": mtxn_id,
+            "merchant_id": merchant_id,
+            "payer_name": payer,
+            "amount": amount,
+            "timestamp": NOW - timedelta(days=days_ago, hours=hours_ago),
+            "collection_status": "COLLECTED",
+            "bank_ref": bank_ref,
+            "settlement_status": "SETTLED",
+            "refund_id": None,
+        }
+        MERCHANT_BANK_SETTLEMENT_RECORDS[bank_ref] = ("SETTLED", "SETTLED_OK")
+
+
+_make_merchant_filler("MERCH_1", "MTXNFILL_1", [
+    ("Customer ending 2201", 1800.0, 1, 2), ("Customer ending 8890", 650.0, 2, 0),
+    ("Customer ending 4432", 3200.0, 4, 0), ("Customer ending 1109", 990.0, 6, 3),
+])
+_make_merchant_filler("MERCH_2", "MTXNFILL_2", [
+    ("Customer ending 7723", 2100.0, 1, 4), ("Customer ending 5561", 850.0, 3, 0),
+    ("Customer ending 9987", 1450.0, 5, 0),
+])
+_make_merchant_filler("MERCH_3", "MTXNFILL_3", [
+    ("Customer ending 3345", 6700.0, 1, 6), ("Customer ending 6612", 4100.0, 3, 0),
+    ("Customer ending 8820", 2950.0, 5, 0),
+])
+
+
 def get_merchant(merchant_id: str) -> dict | None:
     return MERCHANTS.get(merchant_id)
 

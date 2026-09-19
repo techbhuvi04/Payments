@@ -13,7 +13,7 @@ import os
 import time
 from datetime import datetime
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import OpenAI, BadRequestError
 
 import mock_merchants_db as merch_db
 from merchant_tools import MERCHANT_TOOL_SCHEMAS, to_openai_tools, execute_merchant_tool
@@ -107,15 +107,31 @@ def _run_conversation(client: OpenAI, messages: list, scoped_merchant_id: str, m
     steps = 0
     while steps < max_steps:
         steps += 1
-        response = client.chat.completions.create(
-            model=GROQ_MODEL, max_tokens=350, tools=OPENAI_TOOLS, messages=messages,
-        )
+        try:
+            response = client.chat.completions.create(
+                model=GROQ_MODEL, max_tokens=350, tools=OPENAI_TOOLS, messages=messages,
+            )
+        except BadRequestError:
+            if steps == 1:
+                messages.append({"role": "user", "content": "Please retry with a valid tool call."})
+                steps -= 1
+                continue
+            raise
         choice = response.choices[0].message
         messages.append(choice.model_dump(exclude_none=True))
 
         tool_calls = choice.tool_calls or []
         if not tool_calls:
-            yield {"type": "final", "final_text": choice.content or "", "steps": steps}
+            final_text = choice.content or ""
+            # Occasionally the model stops with no tool calls and no content on its very
+            # first turn - nudge it to continue rather than reporting a blank outcome.
+            if not final_text.strip() and steps == 1:
+                messages.append({
+                    "role": "user",
+                    "content": "Continue - check the transaction/settlement details before deciding.",
+                })
+                continue
+            yield {"type": "final", "final_text": final_text, "steps": steps}
             return
 
         for call in tool_calls:

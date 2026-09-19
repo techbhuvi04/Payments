@@ -5,7 +5,7 @@ import os
 import time
 from datetime import datetime
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import OpenAI, BadRequestError
 import mock_txn_db as txn_db
 from recon_tools import RECON_TOOL_SCHEMAS, to_openai_tools, execute_recon_tool
 from tools import GuardrailBlocked
@@ -84,14 +84,29 @@ def _run_one_transaction(client: OpenAI, txn: dict, ticket_id: str):
     steps = 0
     while steps < MAX_STEPS_PER_TXN:
         steps += 1
-        response = client.chat.completions.create(
-            model=GROQ_MODEL, max_tokens=300, tools=OPENAI_TOOLS, messages=messages,
-        )
+        try:
+            response = client.chat.completions.create(
+                model=GROQ_MODEL, max_tokens=300, tools=OPENAI_TOOLS, messages=messages,
+            )
+        except BadRequestError:
+            if steps == 1:
+                messages.append({"role": "user", "content": "Please retry with a valid tool call."})
+                steps -= 1
+                continue
+            raise
         choice = response.choices[0].message
         messages.append(choice.model_dump(exclude_none=True))
 
         tool_calls = choice.tool_calls or []
         if not tool_calls:
+            # Occasionally the model stops with no tool calls on its very first turn,
+            # which would silently skip auditing this transaction - nudge it to continue.
+            if not (choice.content or "").strip() and steps == 1:
+                messages.append({
+                    "role": "user",
+                    "content": "Continue - check the bank settlement status before deciding.",
+                })
+                continue
             return
 
         for call in tool_calls:

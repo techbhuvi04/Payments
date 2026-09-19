@@ -4,14 +4,14 @@ import os
 import time
 from datetime import datetime
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import OpenAI, BadRequestError
 from tools import TOOL_SCHEMAS, to_openai_tools, execute_tool, GuardrailBlocked
 from audit_log import log_event
 
 load_dotenv(override=True)
 
 GROQ_MODEL = "openai/gpt-oss-120b"
-MAX_STEPS = 12
+MAX_STEPS = 8  # every real scenario resolves in 4-6 steps; this bounds worst-case token spend on a stuck run
 
 OPENAI_TOOLS = to_openai_tools(TOOL_SCHEMAS)
 
@@ -94,12 +94,22 @@ def run_agent_stream(customer_id: str, ticket_id: str, complaint_text: str, verb
     steps = 0
     while steps < MAX_STEPS:
         steps += 1
-        response = client.chat.completions.create(
-            model=GROQ_MODEL,
-            max_tokens=400,
-            tools=OPENAI_TOOLS,
-            messages=messages,
-        )
+        try:
+            response = client.chat.completions.create(
+                model=GROQ_MODEL,
+                max_tokens=400,
+                tools=OPENAI_TOOLS,
+                messages=messages,
+            )
+        except BadRequestError as e:
+            # The model occasionally emits malformed tool-call JSON, which Groq rejects
+            # before returning a message at all - retry once with a nudge rather than
+            # failing the whole run over a single bad generation.
+            if steps == 1:
+                messages.append({"role": "user", "content": "Please retry with a valid tool call."})
+                steps -= 1
+                continue
+            raise
 
         choice = response.choices[0].message
         messages.append(choice.model_dump(exclude_none=True))
@@ -107,6 +117,16 @@ def run_agent_stream(customer_id: str, ticket_id: str, complaint_text: str, verb
         tool_calls = choice.tool_calls or []
         if not tool_calls:
             final_text = choice.content or ""
+            # The model occasionally stops with no tool calls and no content on its very
+            # first turn - a real resolution never finishes without at least looking up
+            # the transaction. Treat that as a hiccup and nudge it to continue rather
+            # than reporting a blank "done" to the customer.
+            if not final_text.strip() and steps == 1:
+                messages.append({
+                    "role": "user",
+                    "content": "Continue - look up the transaction and bank settlement before deciding.",
+                })
+                continue
             if verbose:
                 print(f"[agent] final message: {final_text}")
             yield {"type": "final", "result": {"status": "done", "steps": steps, "final_text": final_text}}

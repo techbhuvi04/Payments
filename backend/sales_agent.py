@@ -4,7 +4,7 @@ import os
 import time
 from datetime import datetime
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import OpenAI, BadRequestError
 from sales_tools import SALES_TOOL_SCHEMAS, to_openai_tools, execute_sales_tool
 from tools import GuardrailBlocked
 from audit_log import log_event
@@ -68,12 +68,19 @@ def run_sales_agent_stream(lead_id: str, customer_id: str, verbose: bool = False
     steps = 0
     while steps < MAX_STEPS:
         steps += 1
-        response = client.chat.completions.create(
-            model=GROQ_MODEL,
-            max_tokens=400,
-            tools=OPENAI_TOOLS,
-            messages=messages,
-        )
+        try:
+            response = client.chat.completions.create(
+                model=GROQ_MODEL,
+                max_tokens=400,
+                tools=OPENAI_TOOLS,
+                messages=messages,
+            )
+        except BadRequestError as e:
+            if steps == 1:
+                messages.append({"role": "user", "content": "Please retry with a valid tool call."})
+                steps -= 1
+                continue
+            raise
 
         choice = response.choices[0].message
         messages.append(choice.model_dump(exclude_none=True))
@@ -81,6 +88,14 @@ def run_sales_agent_stream(lead_id: str, customer_id: str, verbose: bool = False
         tool_calls = choice.tool_calls or []
         if not tool_calls:
             final_text = choice.content or ""
+            # Occasionally the model stops with no tool calls and no content on its very
+            # first turn - nudge it to continue rather than reporting a blank outcome.
+            if not final_text.strip() and steps == 1:
+                messages.append({
+                    "role": "user",
+                    "content": "Continue - look up the lead's details before deciding the outreach.",
+                })
+                continue
             if verbose:
                 print(f"[sales-agent] final message: {final_text}")
             yield {"type": "final", "result": {"status": "done", "steps": steps, "final_text": final_text}}
