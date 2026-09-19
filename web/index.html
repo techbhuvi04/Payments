@@ -114,6 +114,40 @@
       </div>
     </section>
 
+    <section class="impact-section" style="padding:40px 0;background:var(--bg-elevated);border-top:1px solid var(--border-color);border-bottom:1px solid var(--border-color)">
+      <div class="section-inner">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:24px">
+          <div>
+            <h2 class="section-heading" style="margin-bottom:4px">DhanAI Impact</h2>
+            <p class="section-sub" style="margin:0">Live metrics from completed runs and mock data.</p>
+          </div>
+          <span style="font-size:0.8rem;opacity:0.6"><svg width="12" height="12" style="margin-right:4px;vertical-align:-2px"><use href="#ic-check-circle"/></svg>Demo impact updates as actions complete</span>
+        </div>
+        <div class="impact-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:20px;">
+          <div class="brief-card">
+            <div class="txn-sub" style="margin-bottom:8px;font-size:0.85rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Money Recovered</div>
+            <div id="impactMoney" style="font-size:2rem;font-weight:700;margin-bottom:4px;color:var(--color-success)">₹0</div>
+            <div class="txn-sub">Refunds &amp; sales saved</div>
+          </div>
+          <div class="brief-card">
+            <div class="txn-sub" style="margin-bottom:8px;font-size:0.85rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Tickets Prevented</div>
+            <div id="impactTickets" style="font-size:2rem;font-weight:700;margin-bottom:4px;color:var(--text-primary)">0</div>
+            <div class="txn-sub">Auto-resolved issues</div>
+          </div>
+          <div class="brief-card">
+            <div class="txn-sub" style="margin-bottom:8px;font-size:0.85rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Settlement Time Saved</div>
+            <div id="impactTime" style="font-size:2rem;font-weight:700;margin-bottom:4px;color:var(--text-primary)">0 hrs</div>
+            <div class="txn-sub">Vs. 48h manual benchmark</div>
+          </div>
+          <div class="brief-card">
+            <div class="txn-sub" style="margin-bottom:8px;font-size:0.85rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Fraud Prevented</div>
+            <div id="impactFraud" style="font-size:2rem;font-weight:700;margin-bottom:4px;color:var(--color-danger)">0</div>
+            <div class="txn-sub">Scams blocked/reported</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="workspace-select" id="workspace-select">
       <div class="section-inner">
         <h2 class="section-heading">One AI, tailored to your role</h2>
@@ -351,6 +385,15 @@
           </div>
         </div>
 
+        <div class="home-section-head">
+          <h2>Proactive Guardian</h2>
+        </div>
+        <div class="brief-card" id="guardianCard">
+          <div class="brief-message">DhanAI watches your account for issues before you notice them.</div>
+          <button class="preset-btn" id="runGuardianScanBtn" type="button">Run proactive scan</button>
+          <div id="guardianResults"></div>
+        </div>
+
         <div class="dev-link-row">
           <button class="dev-link-btn" id="userScenarioToggle">Try demo scenarios (A&ndash;G) &rarr;</button>
         </div>
@@ -407,6 +450,7 @@
             <button class="prompt-chip" data-prompt="Why did my payment fail?">Why did my payment fail?</button>
             <button class="prompt-chip" data-prompt="Check refund status for my last payment">Check refund status</button>
             <button class="prompt-chip" data-prompt="Explain my most recent transaction">Explain this transaction</button>
+            <button class="prompt-chip chip-danger" id="scamShieldOpenBtn" type="button">Check suspicious message</button>
           </div>
           <div class="attach-sample-row">
             <button class="attach-sample-btn" id="userSampleAttachBtn"><svg><use href="#ic-paperclip"/></svg>Attach demo transactions.csv</button>
@@ -843,6 +887,26 @@
 
   <!-- ============ SHARED: TOASTS / MODAL ============ -->
   <div class="toast-stack" id="toastStack"></div>
+
+  <div class="modal-overlay hidden" id="scamShieldModal">
+    <div class="modal-box">
+      <h3 class="modal-title">Scam Shield</h3>
+      <div class="modal-body">
+        <label for="scamShieldInput">Paste suspicious SMS, UPI request, or scam message</label>
+        <textarea id="scamShieldInput" rows="4" placeholder="e.g. Your KYC will expire, click here to update urgently..."></textarea>
+        <div class="attach-sample-row">
+          <button class="attach-sample-btn" data-scam-demo="Your KYC will expire in 24 hours. Click here to update urgently or your account will be blocked. Share your OTP to verify.">Demo: obvious scam</button>
+          <button class="attach-sample-btn" data-scam-demo="Congrats! You won a cashback reward. Scan this QR to receive Rs.500 instantly, limited time offer.">Demo: uncertain message</button>
+          <button class="attach-sample-btn" data-scam-demo="Reminder: your electricity bill payment of Rs.1200 is due tomorrow.">Demo: normal reminder</button>
+        </div>
+        <div id="scamShieldResult"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-cancel" id="scamShieldCloseBtn" type="button">Close</button>
+        <button class="btn btn-confirm" id="scamShieldCheckBtn" type="button">Check message</button>
+      </div>
+    </div>
+  </div>
 
   <div class="modal-overlay hidden" id="confirmModal">
     <div class="modal-box">

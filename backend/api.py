@@ -24,6 +24,10 @@ import merchant_tools
 from reset_state import reset_all_state
 from audit_log import log_event
 from briefs import get_user_brief, get_business_brief
+from proactive_guardian import run_proactive_scan
+from policy_kb import retrieve_policies, get_evidence_for_resolution
+from scam_shield import classify_message, get_demo_messages
+from impact_metrics import get_impact_metrics
 
 app = FastAPI()
 
@@ -541,6 +545,81 @@ async def get_stats():
         "avg_tool_calls": round(total_tool_calls / total, 1),
         "guardrail_blocks": guardrail_blocks,
     }
+
+
+class ScamCheckRequest(BaseModel):
+    message: str
+    customer_id: str
+
+
+class ScamActionRequest(BaseModel):
+    customer_id: str
+    message: str
+
+
+@app.post("/api/scam-shield/check")
+async def scam_shield_check(req: ScamCheckRequest):
+    result = classify_message(req.message)
+    log_event("agent", "scam_shield_check", {"customer_id": req.customer_id, "risk": result["risk_level"]})
+    return result
+
+
+@app.post("/api/scam-shield/block-payee")
+async def scam_shield_block(req: ScamActionRequest):
+    log_event("agent", "scam_shield_block_payee", {"customer_id": req.customer_id, "message": req.message[:200]})
+    return {"status": "BLOCKED", "note": "Payee has been blocked (simulated)."}
+
+
+@app.post("/api/scam-shield/report")
+async def scam_shield_report(req: ScamActionRequest):
+    log_event("agent", "scam_shield_report", {"customer_id": req.customer_id, "message": req.message[:200]})
+    return {"status": "REPORTED", "note": "Scam reported to DhanAI security team (simulated)."}
+
+
+@app.get("/api/user/{customer_id}/proactive-scan")
+async def proactive_scan(customer_id: str):
+    return run_proactive_scan(customer_id)
+
+
+@app.get("/api/policy/retrieve")
+async def retrieve_policy_evidence(q: str = "", status: str = "", action: str = ""):
+    """Local keyword-based policy retrieval."""
+    keywords = [w for w in q.split() if w] if q else None
+    actions = [a for a in action.split(",") if a] if action else None
+    return {"policies": retrieve_policies(keywords=keywords, status=status or None, actions=actions)}
+
+
+@app.get("/api/scam-shield/demos")
+async def scam_demo_messages():
+    return {"demos": get_demo_messages()}
+
+
+@app.get("/api/runs/{run_id}/evidence")
+async def get_run_evidence(run_id: str):
+    """Policy evidence for a completed run's events."""
+    run = RUNS.get(run_id)
+    if run is None:
+        return {"evidence": None}
+    # find the primary txn status from events
+    txn_status = None
+    for ev in run["events"]:
+        if ev.get("tool") == "get_customer_transactions" and ev.get("result"):
+            try:
+                import json
+                data = json.loads(ev["result"]) if isinstance(ev["result"], str) else ev["result"]
+                txns = data.get("transactions", [])
+                if txns:
+                    txn_status = txns[0].get("status")
+            except Exception:
+                pass
+    evidence = get_evidence_for_resolution(run["events"], txn_status=txn_status)
+    return {"evidence": evidence}
+
+
+@app.get("/api/impact")
+async def impact_metrics():
+    """Return live DhanAI Impact metrics based on completed runs and audit logs."""
+    return get_impact_metrics()
 
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"

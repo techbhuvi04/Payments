@@ -167,3 +167,55 @@ def get_business_brief(business_id: str) -> dict:
             "max_coupons_per_customer": 1,
         },
     }
+
+
+REFUND_AUTO_LIMIT = 25000.0
+FORCE_SETTLE_HOURS = 48
+
+
+def run_proactive_scan(customer_id: str) -> dict:
+    """Proactive Payment Guardian: deterministic scan over this customer's own seeded
+    transactions, using the same thresholds as the real guardrails (tools.py) - no LLM
+    call, this is a rules pass over data that already exists. Finds issues *before* the
+    customer files a complaint about them."""
+    now = txn_db.NOW
+    txns = txn_db.get_customer_transactions(customer_id, days_back=30)
+
+    alerts = []
+    for t in txns:
+        if t["status"] == "FAILED" and not t["refund_id"]:
+            eligible = t["amount"] <= REFUND_AUTO_LIMIT
+            alerts.append({
+                "txn_id": t["txn_id"], "merchant_name": t["merchant_name"], "amount": t["amount"],
+                "kind": "safe_refund" if eligible else "escalation",
+                "timeline": ["Detected", "Investigated", "Safe action" if eligible else "Escalated", "Customer notified"],
+                "message": (
+                    f"We detected a payment issue before you raised a complaint: Rs.{t['amount']:,.0f} to "
+                    f"{t['merchant_name']} failed but was debited. "
+                    + ("Eligible for an automatic refund." if eligible
+                       else "Amount exceeds the auto-refund limit, routed to a human for review.")
+                ),
+            })
+        elif t["status"] == "PENDING":
+            age_hours = (now - t["timestamp"]).total_seconds() / 3600
+            if age_hours > FORCE_SETTLE_HOURS:
+                alerts.append({
+                    "txn_id": t["txn_id"], "merchant_name": t["merchant_name"], "amount": t["amount"],
+                    "kind": "safe_action",
+                    "timeline": ["Detected", "Investigated", "Safe action", "Customer notified"],
+                    "message": (
+                        f"We detected a payment issue before you raised a complaint: Rs.{t['amount']:,.0f} to "
+                        f"{t['merchant_name']} has been pending for {age_hours:.0f}h - eligible for force-settlement."
+                    ),
+                })
+
+        if t["amount"] > REFUND_AUTO_LIMIT and t["status"] == "FAILED":
+            # already captured above as escalation kind; avoid duplicate entries
+            pass
+
+    return {
+        "customer_id": customer_id,
+        "scanned_at": now.isoformat(timespec="seconds"),
+        "transactions_scanned": len(txns),
+        "alerts": alerts,
+    }

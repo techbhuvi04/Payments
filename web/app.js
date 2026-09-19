@@ -805,6 +805,80 @@ function renderUserBrief(brief) {
 // Rows with an issue are tappable and open the assistant panel pre-filled with the
 // matching SCENARIOS complaint (matched by customer_id), reusing existing flows.
 // Each row also has a kebab menu offering "Ask DhanAI about this".
+const GUARDIAN_KIND_LABEL = { safe_refund: "Safe refund", safe_action: "Safe action", escalation: "Escalated", pending_stuck: "Pending stuck" };
+const GUARDIAN_KIND_CLASS = { safe_refund: "badge-green", safe_action: "badge-green", escalation: "badge-red", pending_stuck: "badge-amber" };
+
+async function runGuardianScan() {
+  const btn = document.getElementById("runGuardianScanBtn");
+  const resultsEl = document.getElementById("guardianResults");
+  if (!btn || !resultsEl) return;
+  btn.disabled = true;
+  resultsEl.innerHTML = `<div class="panel-loading">Scanning your account</div>`;
+  try {
+    const res = await fetch(`/api/user/${currentCustomerId}/proactive-scan`);
+    const data = await res.json();
+    renderGuardianResults(data);
+    if (typeof updateImpactMetrics === 'function') updateImpactMetrics();
+  } catch (e) {
+    resultsEl.innerHTML = `<div class="panel-error">Couldn't run the scan.</div>`;
+  }
+  btn.disabled = false;
+}
+
+function renderGuardianResults(data) {
+  const resultsEl = document.getElementById("guardianResults");
+  if (!resultsEl) return;
+  const issues = data.issues || [];
+  const alerts = data.alerts || [];
+  const summary = data.summary || {};
+
+  // Seeded alerts first
+  let html = alerts.map(a => `
+    <div class="brief-list-item" style="border-left:3px solid var(--accent-primary);padding-left:10px;margin-bottom:6px">
+      <div style="font-size:.82rem;opacity:.7">${escapeHtml(a.timestamp || '')}</div>
+      <div>${escapeHtml(a.message)}</div>
+    </div>
+  `).join('');
+
+  if (!issues.length) {
+    html += `<div class="brief-list-item">Scanned ${summary.total_scanned || 0} transaction(s) &mdash; no proactive action needed.</div>`;
+    resultsEl.innerHTML = html;
+    return;
+  }
+
+  // Summary bar
+  html += `<div class="brief-list-item" style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0">
+    <span class="status-badge badge-green">${summary.safe_refund || 0} safe refund</span>
+    <span class="status-badge badge-amber">${summary.pending_stuck || 0} pending stuck</span>
+    <span class="status-badge badge-red">${summary.escalation || 0} escalation</span>
+    <span style="opacity:.6;font-size:.8rem">${summary.total_scanned || 0} scanned</span>
+  </div>`;
+
+  // Each issue with timeline
+  html += issues.map(issue => {
+    const sevClass = issue.severity === 'high' ? 'badge-red' : issue.severity === 'medium' ? 'badge-amber' : 'badge-green';
+    const catLabel = GUARDIAN_KIND_LABEL[issue.category] || issue.category;
+    const timeline = (issue.timeline || []).map(t => {
+      const icon = t.status === 'done' ? '✅' : t.status === 'ready' ? '🔧' : t.status === 'waiting' ? '⏳' : '⏸';
+      return `${icon} ${escapeHtml(t.step)}: ${escapeHtml(t.detail)}`;
+    }).join('<br>');
+    return `
+      <div class="brief-list-item" style="margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span class="status-badge ${sevClass}">${escapeHtml(catLabel)}</span>
+          <strong>${escapeHtml(issue.title)}</strong>
+        </div>
+        <div class="txn-sub">${escapeHtml(issue.description)}</div>
+        <div class="txn-sub" style="margin-top:4px;line-height:1.6;font-size:.78rem">${timeline}</div>
+      </div>
+    `;
+  }).join('');
+
+  resultsEl.innerHTML = html;
+}
+
+document.getElementById("runGuardianScanBtn") && document.getElementById("runGuardianScanBtn").addEventListener("click", runGuardianScan);
+
 function renderUserTxnList(brief) {
   if (!userTxnList) return;
   if (!brief.has_data) {
@@ -1084,6 +1158,7 @@ function pollEvents(runId) {
     if (data.done) {
       clearInterval(pollTimer);
       pollTimer = null;
+      if (typeof updateImpactMetrics === 'function') updateImpactMetrics();
       sendBtn.disabled = false;
       setAgentDrawerState("userAgentState", false);
       const finalStatus = data.state.ticket && data.state.ticket.status;
@@ -1179,9 +1254,52 @@ function renderDecisionCard(events, state) {
     ${ticketId ? `<div class="decision-row"><div class="drk">Reference ID</div><div class="drv">${escapeHtml(ticketId)}${refundId ? ` &middot; ${escapeHtml(refundId)}` : ""}</div></div>` : ""}
     <div class="decision-row"><div class="drk">Escalation status</div><div class="drv">${escapeHtml(escalationStatus)}</div></div>
     <div class="decision-row"><div class="drk">Final message</div><div class="drv">${escapeHtml(finalText || "-")}</div></div>
+    <div class="decision-row">
+      <div class="drk">Evidence &amp; Policy</div>
+      <div class="drv">
+        <button class="explain-toggle" id="policyEvidenceToggle" type="button">Show evidence &amp; policy &darr;</button>
+        <div class="hidden" id="policyEvidenceWrap"><div class="panel-loading">Loading policy evidence</div></div>
+      </div>
+    </div>
   `;
   activityBody.appendChild(card);
   maybeAutoscroll(activityBody);
+
+  loadPolicyEvidence(actionEvent, toolCalls, wasEscalated);
+}
+
+async function loadPolicyEvidence(actionEvent, toolCalls, wasEscalated) {
+  const toggle = document.getElementById("policyEvidenceToggle");
+  const wrap = document.getElementById("policyEvidenceWrap");
+  if (!toggle || !wrap) return;
+  toggle.addEventListener("click", () => {
+    const hidden = wrap.classList.contains("hidden");
+    wrap.classList.toggle("hidden");
+    toggle.textContent = hidden ? "Hide evidence & policy ↑" : "Show evidence & policy ↓";
+  });
+
+  const q = (toolCalls || []).map(e => e.tool || "").join(" ");
+  const action = actionEvent ? (actionEvent.tool || "") : "";
+  const status = wasEscalated ? "escalate" : "";
+  try {
+    const res = await fetch(`/api/policy/retrieve?q=${encodeURIComponent(q)}&action=${encodeURIComponent(action)}&status=${encodeURIComponent(status)}`);
+    const data = await res.json();
+    const policies = data.policies || [];
+    const bankEvidence = (toolCalls || []).filter(e => e.tool === "check_bank_settlement" || e.tool === "check_merchant_settlement");
+    const evidenceHtml = bankEvidence.length
+      ? bankEvidence.map(e => `<li>Bank/transaction evidence: <code>${escapeHtml(e.result || "")}</code></li>`).join("")
+      : "<li>No direct bank-settlement lookup in this run.</li>";
+    const policyHtml = policies.length
+      ? policies.map(p => `<li><strong>${escapeHtml(p.title)}</strong> &mdash; ${escapeHtml(p.description || p.explanation || '')}</li>`).join("")
+      : "<li>No matching local policy found for this action.</li>";
+    wrap.innerHTML = `
+      <div class="brief-list-item"><strong>Evidence considered</strong><ul>${evidenceHtml}</ul></div>
+      <div class="brief-list-item"><strong>Retrieved policy</strong><ul>${policyHtml}</ul></div>
+      ${policies.length ? `<span class="confidence-pill high">Policy evidence checked</span>` : ""}
+    `;
+  } catch (e) {
+    wrap.innerHTML = `<div class="panel-error">Couldn't load policy evidence.</div>`;
+  }
 }
 
 sendBtn.addEventListener("click", () => {
@@ -1567,6 +1685,7 @@ function pollSalesEvents(runId) {
     if (data.done) {
       clearInterval(salesPollTimer);
       salesPollTimer = null;
+      if (typeof updateImpactMetrics === 'function') updateImpactMetrics();
       setAgentDrawerState("salesAgentState", false);
       const status = data.state.lead_record && data.state.lead_record.status;
       if (hadError) setSalesStatus("escalated", "Error");
@@ -1875,6 +1994,7 @@ function pollReconEvents(runId) {
     if (data.done) {
       clearInterval(reconPollTimer);
       reconPollTimer = null;
+      if (typeof updateImpactMetrics === 'function') updateImpactMetrics();
       runSweepBtn.disabled = false;
       if (hadError) setReconStatus("escalated", "Error");
       else setReconStatus("resolved", "Sweep Complete");
@@ -2205,6 +2325,7 @@ function pollMerchantSweepEvents(runId) {
     if (data.done) {
       clearInterval(merchantSweepPollTimer);
       merchantSweepPollTimer = null;
+      if (typeof updateImpactMetrics === 'function') updateImpactMetrics();
       merchantSweepBtn.disabled = false;
       setAgentDrawerState("merchantAgentState", false);
       if (hadError) setMerchantStatus("escalated", "Error");
@@ -2303,6 +2424,7 @@ function pollMerchantQueryEvents(runId) {
     if (data.done) {
       clearInterval(merchantPollTimer);
       merchantPollTimer = null;
+      if (typeof updateImpactMetrics === 'function') updateImpactMetrics();
       merchantQuerySendBtn.disabled = false;
       setAgentDrawerState("merchantAgentState", false);
       if (hadError) setMerchantStatus("escalated", "Error");
@@ -2445,3 +2567,125 @@ merchantNavActivity.addEventListener("click", () => openInbox());
 merchantNavAskAi.addEventListener("click", () => openAssistOverlay(merchantAssistOverlay));
 merchantNavInsights.addEventListener("click", () => document.getElementById("merchantTrendCard").scrollIntoView({ behavior: "smooth" }));
 merchantNavProfile.addEventListener("click", () => merchantBackBtn.click());
+
+// ---------- SCAM SHIELD ----------
+(function scamShieldInit() {
+  const openBtn = document.getElementById("scamShieldOpenBtn");
+  const modal = document.getElementById("scamShieldModal");
+  const closeBtn = document.getElementById("scamShieldCloseBtn");
+  const checkBtn = document.getElementById("scamShieldCheckBtn");
+  const input = document.getElementById("scamShieldInput");
+  const resultEl = document.getElementById("scamShieldResult");
+  if (!openBtn || !modal) return;
+
+  openBtn.addEventListener("click", () => {
+    modal.classList.remove("hidden");
+    resultEl.innerHTML = "";
+    input.value = "";
+  });
+  closeBtn.addEventListener("click", () => modal.classList.add("hidden"));
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.add("hidden"); });
+
+  modal.querySelectorAll("[data-scam-demo]").forEach(btn => {
+    btn.addEventListener("click", () => { input.value = btn.dataset.scamDemo; });
+  });
+
+  checkBtn.addEventListener("click", async () => {
+    const message = input.value.trim();
+    if (!message) { input.focus(); return; }
+    checkBtn.disabled = true;
+    resultEl.innerHTML = `<div class="panel-loading">Checking message</div>`;
+    try {
+      const res = await fetch("/api/scam-shield/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, customer_id: currentCustomerId }),
+      });
+      const data = await res.json();
+      renderScamResult(data, message);
+    } catch (e) {
+      resultEl.innerHTML = `<div class="panel-error">Couldn't check this message.</div>`;
+    }
+    checkBtn.disabled = false;
+  });
+
+  function renderScamResult(data, message) {
+    const risk = data.risk_level || 'LOW';
+    const riskClass = risk === "HIGH" ? "badge-red" : risk === "MEDIUM" ? "badge-amber" : "badge-green";
+    const signalsHtml = (data.signals || []).length
+      ? `<div class="txn-sub" style="margin:6px 0"><strong>Signals detected:</strong><ul style="margin:4px 0;padding-left:18px">${data.signals.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul></div>`
+      : `<div class="txn-sub">No specific scam signals found.</div>`;
+
+    let actionsHtml = "";
+    if (risk === "HIGH") {
+      actionsHtml = `
+        <div class="brief-list-item" style="margin-top:8px;color:var(--color-danger)"><strong>⛔ Do not pay or share OTP/PIN</strong></div>
+        <div class="modal-actions" style="margin-top:8px;">
+          <button class="btn btn-cancel" id="scamBlockPayeeBtn" type="button">Block payee</button>
+          <button class="btn btn-confirm" id="scamReportBtn" type="button">Report scam</button>
+        </div>
+        <div id="scamActionStatus"></div>
+      `;
+    } else if (risk === "MEDIUM") {
+      actionsHtml = `
+        <div class="modal-actions" style="margin-top:8px;">
+          <button class="btn btn-confirm" id="scamReportBtn" type="button">Report scam</button>
+        </div>
+        <div id="scamActionStatus"></div>
+      `;
+    }
+
+    resultEl.innerHTML = `
+      <div class="brief-card">
+        <span class="status-badge ${riskClass}">${risk} RISK</span>
+        <div style="font-size:.82rem;opacity:.7;margin:4px 0">Risk score: ${data.risk_score || 0}/100</div>
+        ${signalsHtml}
+        <div class="brief-message" style="margin-top:8px">${escapeHtml(data.advice || '')}</div>
+        ${actionsHtml}
+      </div>
+    `;
+
+    const blockBtn = document.getElementById("scamBlockPayeeBtn");
+    const reportBtn = document.getElementById("scamReportBtn");
+    if (blockBtn) {
+      blockBtn.addEventListener("click", async () => {
+        const r = await fetch("/api/scam-shield/block-payee", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ customer_id: currentCustomerId, message }),
+        });
+        const d = await r.json();
+        document.getElementById("scamActionStatus").innerHTML = `<div class="txn-sub">${escapeHtml(d.note)}</div>`;
+        showToast("Payee blocked");
+        if (typeof updateImpactMetrics === 'function') updateImpactMetrics();
+      });
+    }
+    if (reportBtn) {
+      reportBtn.addEventListener("click", async () => {
+        const r = await fetch("/api/scam-shield/report", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ customer_id: currentCustomerId, message }),
+        });
+        const d = await r.json();
+        document.getElementById("scamActionStatus").innerHTML = `<div class="txn-sub">${escapeHtml(d.note)}</div>`;
+        showToast("Scam reported");
+        if (typeof updateImpactMetrics === 'function') updateImpactMetrics();
+      });
+    }
+  }
+})();
+
+async function updateImpactMetrics() {
+  try {
+    const res = await fetch("/api/impact");
+    const data = await res.json();
+    const eMoney = document.getElementById("impactMoney");
+    const eTickets = document.getElementById("impactTickets");
+    const eTime = document.getElementById("impactTime");
+    const eFraud = document.getElementById("impactFraud");
+    if (eMoney) eMoney.textContent = data.money_recovered;
+    if (eTickets) eTickets.textContent = data.tickets_prevented;
+    if (eTime) eTime.textContent = data.settlement_hours_saved;
+    if (eFraud) eFraud.textContent = data.fraud_prevented;
+  } catch(e) {}
+}
+updateImpactMetrics();
