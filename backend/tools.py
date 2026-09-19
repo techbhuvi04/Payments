@@ -1,4 +1,6 @@
 """Tool schemas + executor for the agent loop. Guardrails enforced here, not in the prompt."""
+from datetime import timedelta
+
 import mock_txn_db as txn_db
 import mock_bank_api as bank_api
 import mock_refund_api as refund_api
@@ -7,6 +9,7 @@ import mock_notifier as notifier
 from audit_log import log_event
 
 REFUND_HARD_LIMIT = 25000.0
+FORCE_SETTLEMENT_MIN_PENDING_HOURS = 48
 
 TOOL_SCHEMAS = [
     {
@@ -161,11 +164,7 @@ def execute_tool(name: str, tool_input: dict) -> dict:
         return _initiate_refund_guarded(**tool_input)
 
     if name == "force_settlement":
-        _require_transaction(tool_input["txn_id"])
-        result = refund_api.force_settlement(tool_input["txn_id"])
-        txn_db.set_settlement_status(tool_input["txn_id"], "SETTLED")
-        log_event("agent", "force_settlement", {"txn_id": tool_input["txn_id"], "result": result})
-        return result
+        return _force_settlement_guarded(tool_input["txn_id"])
 
     if name == "update_ticket":
         if tool_input["ticket_id"] not in crm.TICKETS:
@@ -201,7 +200,15 @@ def execute_tool(name: str, tool_input: dict) -> dict:
 
 
 def _initiate_refund_guarded(txn_id: str, amount: float, reason: str) -> dict:
-    _require_transaction(txn_id)
+    txn = _require_transaction(txn_id)
+
+    if round(float(amount), 2) != round(float(txn["amount"]), 2):
+        log_event("guardrail", "refund_blocked_amount_mismatch", {"txn_id": txn_id, "requested": amount, "actual": txn["amount"]})
+        raise GuardrailBlocked(
+            f"Refund blocked: requested amount Rs.{amount:,.2f} does not match the transaction's "
+            f"actual amount Rs.{txn['amount']:,.2f}. Refunds must exactly match the original charge - "
+            "re-check the transaction record, do not guess or round the amount."
+        )
 
     if amount > REFUND_HARD_LIMIT:
         log_event("guardrail", "refund_blocked_amount_limit", {"txn_id": txn_id, "amount": amount})
@@ -221,4 +228,34 @@ def _initiate_refund_guarded(txn_id: str, amount: float, reason: str) -> dict:
     result = refund_api.initiate_refund(txn_id, amount, reason)
     txn_db.set_refund_id(txn_id, result["refund_id"])
     log_event("agent", "initiate_refund", {"txn_id": txn_id, "amount": amount, "reason": reason, "result": result})
+    return result
+
+
+def _force_settlement_guarded(txn_id: str) -> dict:
+    txn = _require_transaction(txn_id)
+
+    if txn["settlement_status"] == "SETTLED":
+        log_event("guardrail", "force_settlement_noop_already_settled", {"txn_id": txn_id})
+        return {"txn_id": txn_id, "status": "SETTLED", "note": "Already settled - no action taken (idempotent)."}
+
+    if txn["status"] != "PENDING" or txn["settlement_status"] != "PENDING":
+        log_event("guardrail", "force_settlement_blocked_not_pending", {"txn_id": txn_id, "status": txn["status"], "settlement_status": txn["settlement_status"]})
+        raise GuardrailBlocked(
+            f"Force-settlement blocked: txn {txn_id} is not in a PENDING state "
+            f"(status={txn['status']}, settlement_status={txn['settlement_status']}). "
+            "Force-settlement only applies to transactions genuinely stuck in PENDING."
+        )
+
+    age = txn_db.NOW - txn["timestamp"]
+    if age < timedelta(hours=FORCE_SETTLEMENT_MIN_PENDING_HOURS):
+        log_event("guardrail", "force_settlement_blocked_too_recent", {"txn_id": txn_id, "age_hours": age.total_seconds() / 3600})
+        raise GuardrailBlocked(
+            f"Force-settlement blocked: txn {txn_id} has been PENDING for only "
+            f"{age.total_seconds() / 3600:.1f}h, under the {FORCE_SETTLEMENT_MIN_PENDING_HOURS}h "
+            "threshold. Wait for it to age further, or escalate if the customer needs it resolved now."
+        )
+
+    result = refund_api.force_settlement(txn_id)
+    txn_db.set_settlement_status(txn_id, "SETTLED")
+    log_event("agent", "force_settlement", {"txn_id": txn_id, "result": result})
     return result

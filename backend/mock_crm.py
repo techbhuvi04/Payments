@@ -101,6 +101,33 @@ TICKETS: dict[str, dict] = {
         "notes": [],
         "escalation": None,
     },
+    "TICKET_M1": {
+        "ticket_id": "TICKET_M1",
+        "customer_id": "MERCH_1",
+        "status": "OPEN",
+        "assigned_to": "MERCHANT_AGENT",
+        "priority": "NORMAL",
+        "notes": [],
+        "escalation": None,
+    },
+    "TICKET_M2": {
+        "ticket_id": "TICKET_M2",
+        "customer_id": "MERCH_2",
+        "status": "OPEN",
+        "assigned_to": "MERCHANT_AGENT",
+        "priority": "NORMAL",
+        "notes": [],
+        "escalation": None,
+    },
+    "TICKET_M3": {
+        "ticket_id": "TICKET_M3",
+        "customer_id": "MERCH_3",
+        "status": "OPEN",
+        "assigned_to": "MERCHANT_AGENT",
+        "priority": "NORMAL",
+        "notes": [],
+        "escalation": None,
+    },
 }
 
 CUSTOMER_TO_TICKET = {t["customer_id"]: tid for tid, t in TICKETS.items()}

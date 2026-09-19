@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from agent import run_agent_events
 from sales_agent import run_sales_agent_events
 from recon_agent import run_reconciliation_sweep
+from merchant_agent import run_merchant_sweep, run_merchant_query_events
 import mock_txn_db as txn_db
 import mock_crm as crm
 import mock_notifier as notifier
@@ -18,16 +19,28 @@ import mock_refund_api as refund_api
 import mock_leads_db as leads_db
 import mock_sales_crm as sales_crm
 import mock_coupon_api as coupon_api
+import mock_merchants_db as merch_db
+import merchant_tools
 from reset_state import reset_all_state
 from audit_log import log_event
+from briefs import get_user_brief, get_business_brief
 
 app = FastAPI()
 
 RUNS: dict[str, dict] = {}
 SALES_RUNS: dict[str, dict] = {}
 RECON_RUNS: dict[str, dict] = {}
+MERCHANT_RUNS: dict[str, dict] = {}
+MERCHANT_QUERY_RUNS: dict[str, dict] = {}
 
 RECON_TXN_IDS = ["TXN1009", "TXN1010", "TXN1011", "TXN1012"]
+
+# One demo sweep scenario per merchant: clean confirmation / safe auto-fixes / high-value escalation.
+MERCHANT_SWEEP_TXN_IDS = {
+    "MERCH_1": ["MTXN_101", "MTXN_102"],
+    "MERCH_2": ["MTXN_201", "MTXN_202"],
+    "MERCH_3": ["MTXN_301", "MTXN_302"],
+}
 
 
 class RunRequest(BaseModel):
@@ -42,6 +55,11 @@ class SalesRunRequest(BaseModel):
 
 class ResolveEscalationRequest(BaseModel):
     resolution_note: str
+
+
+class MerchantQueryRequest(BaseModel):
+    merchant_id: str
+    question: str
 
 
 def _current_state(customer_id: str, ticket_id: str | None) -> dict:
@@ -232,6 +250,148 @@ async def get_recon_events(run_id: str, since: int = 0):
     }
 
 
+def _current_merchant_state(merchant_id: str) -> dict:
+    txns = merch_db.get_merchant_transactions(merchant_id, days_back=30)
+    ticket = crm.get_ticket_for_customer(merchant_id)
+    refunds = {t["mtxn_id"]: merchant_tools.get_merchant_refund(t["mtxn_id"]) for t in txns}
+    refunds = {k: v for k, v in refunds.items() if v}
+    return {"transactions": txns, "ticket": ticket, "refunds": refunds}
+
+
+async def execute_merchant_sweep(run_id: str, merchant_id: str, mtxn_ids: list[str]) -> None:
+    run = MERCHANT_RUNS[run_id]
+    loop = asyncio.get_event_loop()
+    gen = run_merchant_sweep(merchant_id, mtxn_ids)
+
+    try:
+        while True:
+            event = await loop.run_in_executor(None, _next_or_none, gen)
+            if event is None:
+                break
+            run["events"].append(event)
+            run["state"] = _current_merchant_state(merchant_id)
+            if event["type"] == "done":
+                run["done"] = True
+            await asyncio.sleep(0.3)
+    except Exception as e:
+        run["events"].append({
+            "seq": len(run["events"]) + 1,
+            "type": "done",
+            "tool": None,
+            "args": None,
+            "result": {"status": "error", "final_text": f"Merchant sweep failed: {e}"},
+            "latency_ms": None,
+            "blocked": False,
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+        })
+
+    run["done"] = True
+
+
+@app.post("/api/merchant/{merchant_id}/sweep")
+async def start_merchant_sweep(merchant_id: str):
+    if merch_db.get_merchant(merchant_id) is None:
+        return {"error": f"Unknown merchant_id: {merchant_id}"}
+
+    mtxn_ids = MERCHANT_SWEEP_TXN_IDS.get(merchant_id, [t["mtxn_id"] for t in merch_db.get_merchant_transactions(merchant_id, days_back=30)])
+    run_id = uuid.uuid4().hex[:12]
+    MERCHANT_RUNS[run_id] = {
+        "events": [],
+        "done": False,
+        "state": _current_merchant_state(merchant_id),
+    }
+    asyncio.create_task(execute_merchant_sweep(run_id, merchant_id, mtxn_ids))
+    return {"run_id": run_id}
+
+
+@app.get("/api/merchant/sweep/{run_id}/events")
+async def get_merchant_sweep_events(run_id: str, since: int = 0):
+    run = MERCHANT_RUNS.get(run_id)
+    if run is None:
+        return {"events": [], "done": True, "state": {}}
+    return {"events": run["events"][since:], "done": run["done"], "state": run["state"]}
+
+
+async def execute_merchant_query(run_id: str, merchant_id: str, ticket_id: str, question: str) -> None:
+    run = MERCHANT_QUERY_RUNS[run_id]
+    loop = asyncio.get_event_loop()
+    gen = run_merchant_query_events(merchant_id, ticket_id, question)
+
+    try:
+        while True:
+            event = await loop.run_in_executor(None, _next_or_none, gen)
+            if event is None:
+                break
+            run["events"].append(event)
+            run["state"] = _current_merchant_state(merchant_id)
+            if event["type"] == "done":
+                run["done"] = True
+            await asyncio.sleep(0.3)
+    except Exception as e:
+        run["events"].append({
+            "seq": len(run["events"]) + 1,
+            "type": "done",
+            "tool": None,
+            "args": None,
+            "result": {"status": "error", "final_text": f"Merchant query failed: {e}"},
+            "latency_ms": None,
+            "blocked": False,
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+        })
+
+    run["done"] = True
+
+
+@app.post("/api/merchant/query")
+async def start_merchant_query(req: MerchantQueryRequest):
+    if merch_db.get_merchant(req.merchant_id) is None:
+        return {"error": f"Unknown merchant_id: {req.merchant_id}"}
+
+    ticket = crm.get_ticket_for_customer(req.merchant_id)
+    ticket_id = ticket["ticket_id"] if ticket else None
+
+    run_id = uuid.uuid4().hex[:12]
+    MERCHANT_QUERY_RUNS[run_id] = {
+        "events": [],
+        "done": False,
+        "state": _current_merchant_state(req.merchant_id),
+    }
+    asyncio.create_task(execute_merchant_query(run_id, req.merchant_id, ticket_id, req.question))
+    return {"run_id": run_id}
+
+
+@app.get("/api/merchant/query/{run_id}/events")
+async def get_merchant_query_events(run_id: str, since: int = 0):
+    run = MERCHANT_QUERY_RUNS.get(run_id)
+    if run is None:
+        return {"events": [], "done": True, "state": {}}
+    return {"events": run["events"][since:], "done": run["done"], "state": run["state"]}
+
+
+@app.get("/api/merchant/list")
+async def list_merchants():
+    """All seeded merchants, for the UI's workspace picker."""
+    return {"merchants": list(merch_db.MERCHANTS.values())}
+
+
+@app.get("/api/merchant/{merchant_id}/state")
+async def get_merchant_state(merchant_id: str):
+    """Current snapshot of a merchant's transactions/ticket, without starting a sweep or query."""
+    if merch_db.get_merchant(merchant_id) is None:
+        return {"error": f"Unknown merchant_id: {merchant_id}"}
+    return _current_merchant_state(merchant_id)
+
+
+@app.get("/api/user/{customer_id}/brief")
+async def user_brief(customer_id: str):
+    return get_user_brief(customer_id)
+
+
+@app.get("/api/business/{business_id}/brief")
+async def business_brief(business_id: str):
+    return get_business_brief(business_id)
+
+
 @app.post("/api/run")
 async def start_run(req: RunRequest):
     ticket = crm.get_ticket_for_customer(req.customer_id)
@@ -284,6 +444,10 @@ async def resolve_escalation(ticket_id: str, req: ResolveEscalationRequest):
 async def reset():
     reset_all_state()
     RUNS.clear()
+    SALES_RUNS.clear()
+    RECON_RUNS.clear()
+    MERCHANT_RUNS.clear()
+    MERCHANT_QUERY_RUNS.clear()
     return {"status": "reset"}
 
 

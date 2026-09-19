@@ -3,26 +3,44 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Paytm Autonomous Resolution Agent</title>
+  <title>DhanAI — Your Personalized Paytm Teammate</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <section id="landing">
     <header>
       <div style="display:flex; align-items:center; gap:12px;">
-        <h1>Paytm <span class="accent">Autonomous</span> Resolution Agent</h1>
+        <h1>Dhan<span class="accent">AI</span></h1>
       </div>
-      <span class="status-indicator resolved"><span class="status-dot"></span><span>DhanAi</span></span>
+      <span class="status-indicator resolved"><span class="status-dot"></span><span>Your Personalized Paytm Teammate</span></span>
     </header>
 
     <section class="hero">
-      <h1>Autonomous refund resolution, not another chatbot</h1>
-      <p class="subhead">A hand-rolled agent that reads a complaint, investigates the transaction, and takes action — refund, settlement, or escalation — in seconds.</p>
-      <div class="hero-actions">
-        <button class="btn-primary" id="openConsoleBtn">Open Customer Service</button>
-        <button class="btn-ghost" id="openSalesBtn">Open Sales Teammate</button>
-        <button class="btn-ghost" id="openReconBtn">Open Reconciliation</button>
-        <button class="btn-ghost" id="learnMoreBtn">Learn more</button>
+      <h1>One teammate. Three roles. Real actions, not just answers.</h1>
+      <p class="subhead">DhanAI reads context, decides, and acts — refunds, settlements, coupons, escalations — instead of just chatting about them. Pick how you want to work with it.</p>
+    </section>
+
+    <section class="role-select">
+      <p class="role-select-title">Choose your workspace</p>
+      <div class="role-cards">
+        <button class="role-card role-user" id="roleUserCard">
+          <div class="role-icon">&#128100;</div>
+          <h3>Paytm User</h3>
+          <p>Personal finance &amp; payment support. Get a daily brief, chat about a failed payment or refund, and watch the agent investigate and resolve it with full explainability.</p>
+          <span class="role-card-action">Open workspace &rarr;</span>
+        </button>
+        <button class="role-card role-merchant" id="roleMerchantCard">
+          <div class="role-icon">&#127974;</div>
+          <h3>Merchant</h3>
+          <p>Collections &amp; settlement operations. Run a proactive reconciliation sweep, ask about a specific settlement in your own words, and see exceptions before customers ever complain.</p>
+          <span class="role-card-action">Open workspace &rarr;</span>
+        </button>
+        <button class="role-card role-business" id="roleBusinessCard">
+          <div class="role-icon">&#128200;</div>
+          <h3>Business Owner</h3>
+          <p>Growth &amp; revenue operations. See recoverable checkout leads, let the agent run guardrailed win-back outreach, and track revenue recovered vs. discounts protected.</p>
+          <span class="role-card-action">Open workspace &rarr;</span>
+        </button>
       </div>
     </section>
 
@@ -86,15 +104,13 @@
   <div class="app hidden" id="console">
     <header>
       <div style="display:flex; align-items:center; gap:12px;">
-        <button class="back-btn hidden" id="backBtn" aria-label="Back to landing">
+        <button class="back-btn" id="backBtn" aria-label="Back to role selection">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
         </button>
-        <h1>Paytm <span class="accent">Autonomous</span> Resolution Agent</h1>
+        <h1>Dhan<span class="accent">AI</span> &mdash; Paytm User</h1>
       </div>
       <div style="display:flex; align-items:center; gap:12px;">
-        <span class="status-indicator" id="statusIndicator"><span class="status-dot"></span><span id="statusText">DhanAi</span></span>
-        <button class="reset-btn" id="goSalesBtn">Sales Teammate</button>
-        <button class="reset-btn" id="goReconBtn">Reconciliation</button>
+        <span class="status-indicator" id="statusIndicator"><span class="status-dot"></span><span id="statusText">DhanAI</span></span>
         <button class="reset-btn" id="humanInboxBtn">Human Inbox <span id="inboxBadge" class="inbox-badge hidden">0</span></button>
         <button class="reset-btn" id="resetBtn">Reset all state</button>
       </div>
@@ -102,7 +118,10 @@
 
     <div class="columns">
       <div class="col">
-        <h2>Customer Chat</h2>
+        <h2>Personal AI Brief &amp; Customer Chat</h2>
+        <div class="col-body" id="userBriefWrap" style="flex:0 0 auto; max-height:38%; overflow-y:auto;">
+          <div class="panel-loading">Loading your brief</div>
+        </div>
         <div class="presets">
           <button class="preset-btn" data-scenario="A">Scenario A</button>
           <button class="preset-btn" data-scenario="B">Scenario B</button>
@@ -157,20 +176,24 @@
   <div class="app hidden" id="sales">
     <header>
       <div style="display:flex; align-items:center; gap:12px;">
-        <button class="back-btn" id="salesBackBtn" aria-label="Back">
+        <button class="back-btn" id="salesBackBtn" aria-label="Back to role selection">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
         </button>
-        <h1>Paytm <span class="accent">Sales</span> Teammate</h1>
+        <h1>Dhan<span class="accent">AI</span> &mdash; Business Owner</h1>
       </div>
       <div style="display:flex; align-items:center; gap:12px;">
-        <span class="status-indicator" id="salesStatusIndicator"><span class="status-dot"></span><span id="salesStatusText">DhanAi</span></span>
+        <span class="status-indicator" id="salesStatusIndicator"><span class="status-dot"></span><span id="salesStatusText">DhanAI</span></span>
+        <button class="reset-btn" id="humanInboxBtnBiz">Human Inbox</button>
         <button class="reset-btn" id="salesResetBtn">Reset all state</button>
       </div>
     </header>
 
     <div class="columns">
       <div class="col">
-        <h2>Abandoned / Failed Leads</h2>
+        <h2>Business AI Brief &amp; Recovery Opportunities</h2>
+        <div class="col-body" id="businessBriefWrap" style="flex:0 0 auto; max-height:40%; overflow-y:auto;">
+          <div class="panel-loading">Loading your brief</div>
+        </div>
         <div class="presets" id="leadPresets"></div>
         <div class="col-body" id="leadBody"></div>
       </div>
@@ -181,9 +204,12 @@
       </div>
 
       <div class="col">
-        <h2>Outcome State</h2>
+        <h2>Impact &amp; Outcome State</h2>
         <div class="col-body" id="salesStateBody">
-          <div class="state-box" id="salesStatsBox"><h3>Session Outcomes</h3><div class="kv">No runs yet</div></div>
+          <div class="brief-card impact-card" id="impactCardBox">
+            <h3>Revenue Impact</h3>
+            <div class="panel-empty">Run outreach on a lead to see impact.</div>
+          </div>
           <div class="state-box" id="leadRecordBox"><h3>Lead Status</h3><div class="kv">No lead selected</div></div>
           <div class="state-box" id="couponBox"><h3>Coupon</h3><div class="kv">None issued</div></div>
           <div class="state-box" id="salesSmsBox"><h3>SMS Outbox</h3><div class="kv">Empty</div></div>
@@ -195,13 +221,13 @@
   <div class="app hidden" id="recon">
     <header>
       <div style="display:flex; align-items:center; gap:12px;">
-        <button class="back-btn" id="reconBackBtn" aria-label="Back">
+        <button class="back-btn" id="reconBackBtn" aria-label="Back to Merchant workspace">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
         </button>
-        <h1>Paytm <span class="accent">Reconciliation</span> Teammate</h1>
+        <h1>Dhan<span class="accent">AI</span> &mdash; Platform-wide Reconciliation</h1>
       </div>
       <div style="display:flex; align-items:center; gap:12px;">
-        <span class="status-indicator" id="reconStatusIndicator"><span class="status-dot"></span><span id="reconStatusText">DhanAi</span></span>
+        <span class="status-indicator" id="reconStatusIndicator"><span class="status-dot"></span><span id="reconStatusText">DhanAI</span></span>
         <button class="reset-btn" id="reconResetBtn">Reset all state</button>
       </div>
     </header>
@@ -227,6 +253,56 @@
         <div class="col-body" id="reconStateBody">
           <div class="state-box" id="reconSummaryBox"><h3>Last Sweep</h3><div class="kv">No sweep run yet</div></div>
           <div class="state-box" id="reconTxnBox"><h3>Transactions Audited</h3><div class="kv">No data</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app hidden" id="merchant">
+    <header>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button class="back-btn" id="merchantBackBtn" aria-label="Back to role selection">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        </button>
+        <h1>Dhan<span class="accent">AI</span> &mdash; Merchant</h1>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="status-indicator" id="merchantStatusIndicator"><span class="status-dot"></span><span id="merchantStatusText">DhanAI</span></span>
+        <button class="reset-btn" id="humanInboxBtnMerch">Human Inbox <span id="inboxBadgeMerch" class="inbox-badge hidden">0</span></button>
+        <button class="reset-btn" id="goPlatformReconBtn">Platform Reconciliation</button>
+        <button class="reset-btn" id="merchantResetBtn">Reset all state</button>
+      </div>
+    </header>
+
+    <div class="columns">
+      <div class="col">
+        <h2>Merchant AI Brief &amp; Query</h2>
+        <div class="merchant-picker" id="merchantPicker"></div>
+        <div class="col-body" id="merchantBriefWrap" style="flex:0 0 auto; max-height:34%; overflow-y:auto;">
+          <div class="panel-empty">Select a merchant above to load their brief.</div>
+        </div>
+        <div class="col-body" id="merchantChatBody"></div>
+        <div class="merchant-query-input">
+          <textarea id="merchantQueryInput" placeholder="e.g. Mujhe kal ke Rs.5600 payment ka settlement nahi mila..."></textarea>
+          <button id="merchantQuerySendBtn">Ask</button>
+        </div>
+      </div>
+
+      <div class="col">
+        <h2>Live Agent Activity</h2>
+        <div class="col-body" id="merchantActivityBody"></div>
+      </div>
+
+      <div class="col">
+        <h2>Collections, Settlements &amp; Exceptions</h2>
+        <div class="col-body" id="merchantStateBody">
+          <div class="state-box" id="merchantSweepBox">
+            <h3>Reconciliation Sweep</h3>
+            <button class="preset-btn" id="merchantSweepBtn" style="margin-bottom:8px;">Run Settlement Sweep</button>
+            <div class="kv">No sweep run yet</div>
+          </div>
+          <div class="state-box" id="merchantTxnBox"><h3>Today's Collections &amp; Pending Settlements</h3><div class="kv">No data</div></div>
+          <div class="state-box" id="merchantExceptionsBox"><h3>Exceptions / Escalations</h3><div class="kv">None</div></div>
         </div>
       </div>
     </div>

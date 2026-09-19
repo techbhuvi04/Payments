@@ -114,10 +114,7 @@ def execute_recon_tool(name: str, tool_input: dict) -> dict:
         return _auto_refund_guarded(**tool_input)
 
     if name == "correct_internal_status":
-        _require_transaction(tool_input["txn_id"])
-        txn_db.set_settlement_status(tool_input["txn_id"], tool_input["correct_status"])
-        log_event("agent", "correct_internal_status", {"input": tool_input})
-        return {"txn_id": tool_input["txn_id"], "settlement_status": tool_input["correct_status"], "status": "CORRECTED"}
+        return _correct_status_guarded(**{k: tool_input[k] for k in ("txn_id", "correct_status", "reason")})
 
     if name == "escalate_mismatch":
         if tool_input["ticket_id"] not in crm.TICKETS:
@@ -141,8 +138,36 @@ def execute_recon_tool(name: str, tool_input: dict) -> dict:
     raise ValueError(f"Unknown tool: {name}")
 
 
+VALID_SETTLEMENT_STATUSES = {"PENDING", "SETTLED", "DECLINED", "UNKNOWN"}
+
+
+def _correct_status_guarded(txn_id: str, correct_status: str, reason: str) -> dict:
+    txn = _require_transaction(txn_id)
+
+    if correct_status not in VALID_SETTLEMENT_STATUSES:
+        raise GuardrailBlocked(
+            f"Status correction blocked: '{correct_status}' is not a valid settlement status "
+            f"({sorted(VALID_SETTLEMENT_STATUSES)}). Re-check the bank's actual response."
+        )
+
+    if txn["settlement_status"] == correct_status:
+        log_event("guardrail", "correct_status_noop_already_matches", {"txn_id": txn_id, "status": correct_status})
+        return {"txn_id": txn_id, "settlement_status": correct_status, "status": "ALREADY_CORRECT", "note": "No action taken (idempotent)."}
+
+    txn_db.set_settlement_status(txn_id, correct_status)
+    log_event("agent", "correct_internal_status", {"txn_id": txn_id, "correct_status": correct_status, "reason": reason})
+    return {"txn_id": txn_id, "settlement_status": correct_status, "status": "CORRECTED"}
+
+
 def _auto_refund_guarded(txn_id: str, amount: float, reason: str) -> dict:
-    _require_transaction(txn_id)
+    txn = _require_transaction(txn_id)
+
+    if round(float(amount), 2) != round(float(txn["amount"]), 2):
+        log_event("guardrail", "recon_refund_blocked_amount_mismatch", {"txn_id": txn_id, "requested": amount, "actual": txn["amount"]})
+        raise GuardrailBlocked(
+            f"Auto-refund blocked: requested amount Rs.{amount:,.2f} does not match the transaction's "
+            f"actual amount Rs.{txn['amount']:,.2f}. Refunds must exactly match the original charge."
+        )
 
     if amount > AUTO_FIX_LIMIT:
         log_event("guardrail", "recon_refund_blocked_amount_limit", {"txn_id": txn_id, "amount": amount})

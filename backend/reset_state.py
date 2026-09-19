@@ -12,12 +12,15 @@ import mock_notifier
 import mock_leads_db
 import mock_sales_crm
 import mock_coupon_api
+import mock_merchants_db
+import merchant_tools
 import audit_log
 
 _ORIGINAL_TRANSACTIONS = copy.deepcopy(mock_txn_db.TRANSACTIONS)
 _ORIGINAL_TICKETS = copy.deepcopy(mock_crm.TICKETS)
 _ORIGINAL_LEADS = copy.deepcopy(mock_leads_db.LEADS)
 _ORIGINAL_LEAD_RECORDS = copy.deepcopy(mock_sales_crm.LEAD_RECORDS)
+_ORIGINAL_MERCHANT_TRANSACTIONS = copy.deepcopy(mock_merchants_db.MERCHANT_TRANSACTIONS)
 
 
 def reset_all_state() -> None:
@@ -39,5 +42,9 @@ def reset_all_state() -> None:
     mock_sales_crm.LEAD_RECORDS.update(copy.deepcopy(_ORIGINAL_LEAD_RECORDS))
 
     mock_coupon_api.COUPONS.clear()
+
+    mock_merchants_db.MERCHANT_TRANSACTIONS.clear()
+    mock_merchants_db.MERCHANT_TRANSACTIONS.update(copy.deepcopy(_ORIGINAL_MERCHANT_TRANSACTIONS))
+    merchant_tools.MERCHANT_REFUNDS.clear()
 
     audit_log.reset_audit_log()

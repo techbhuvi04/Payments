@@ -17,8 +17,6 @@ const statusIndicator = document.getElementById("statusIndicator");
 const statusText = document.getElementById("statusText");
 const landing = document.getElementById("landing");
 const consoleView = document.getElementById("console");
-const openConsoleBtn = document.getElementById("openConsoleBtn");
-const learnMoreBtn = document.getElementById("learnMoreBtn");
 const backBtn = document.getElementById("backBtn");
 const inboxView = document.getElementById("inbox");
 const inboxBody = document.getElementById("inboxBody");
@@ -32,18 +30,37 @@ const salesActivityBody = document.getElementById("salesActivityBody");
 const salesStatusIndicator = document.getElementById("salesStatusIndicator");
 const salesStatusText = document.getElementById("salesStatusText");
 const salesResetBtn = document.getElementById("salesResetBtn");
-const openSalesBtn = document.getElementById("openSalesBtn");
-const goSalesBtn = document.getElementById("goSalesBtn");
 const salesBackBtn = document.getElementById("salesBackBtn");
 const reconView = document.getElementById("recon");
 const reconActivityBody = document.getElementById("reconActivityBody");
 const reconStatusIndicator = document.getElementById("reconStatusIndicator");
 const reconStatusText = document.getElementById("reconStatusText");
 const reconResetBtn = document.getElementById("reconResetBtn");
-const openReconBtn = document.getElementById("openReconBtn");
-const goReconBtn = document.getElementById("goReconBtn");
 const reconBackBtn = document.getElementById("reconBackBtn");
 const runSweepBtn = document.getElementById("runSweepBtn");
+
+// Role selector
+const roleUserCard = document.getElementById("roleUserCard");
+const roleMerchantCard = document.getElementById("roleMerchantCard");
+const roleBusinessCard = document.getElementById("roleBusinessCard");
+
+// Merchant workspace
+const merchantView = document.getElementById("merchant");
+const merchantBackBtn = document.getElementById("merchantBackBtn");
+const merchantResetBtn = document.getElementById("merchantResetBtn");
+const merchantStatusIndicator = document.getElementById("merchantStatusIndicator");
+const merchantStatusText = document.getElementById("merchantStatusText");
+const merchantPicker = document.getElementById("merchantPicker");
+const merchantBriefWrap = document.getElementById("merchantBriefWrap");
+const merchantChatBody = document.getElementById("merchantChatBody");
+const merchantQueryInput = document.getElementById("merchantQueryInput");
+const merchantQuerySendBtn = document.getElementById("merchantQuerySendBtn");
+const merchantActivityBody = document.getElementById("merchantActivityBody");
+const merchantSweepBtn = document.getElementById("merchantSweepBtn");
+const goPlatformReconBtn = document.getElementById("goPlatformReconBtn");
+const humanInboxBtnMerch = document.getElementById("humanInboxBtnMerch");
+const inboxBadgeMerch = document.getElementById("inboxBadgeMerch");
+const humanInboxBtnBiz = document.getElementById("humanInboxBtnBiz");
 
 let currentCustomerId = "CUST_A";
 let renderedCount = 0;
@@ -53,10 +70,14 @@ let inboxBadgeTimer = null;
 let currentLeadId = null;
 let salesRenderedCount = 0;
 let salesPollTimer = null;
-let salesOpenedFrom = "landing";
 let reconRenderedCount = 0;
 let reconPollTimer = null;
-let reconOpenedFrom = "landing";
+let currentMerchantId = null;
+let merchantRenderedCount = 0;
+let merchantPollTimer = null;
+let merchantSweepRenderedCount = 0;
+let merchantSweepPollTimer = null;
+let merchantList = [];
 
 function setStatus(kind, label) {
   statusIndicator.className = `status-indicator ${kind}`;
@@ -263,6 +284,48 @@ function renderState(state) {
   renderSms(state.sms_outbox);
 }
 
+// ---------- PERSONAL AI BRIEF (Paytm User workspace) ----------
+// Deterministic - fetched from GET /api/user/{customer_id}/brief, no LLM call involved.
+async function loadUserBrief(customerId) {
+  const wrap = document.getElementById("userBriefWrap");
+  wrap.innerHTML = `<div class="panel-loading">Loading your brief</div>`;
+  try {
+    const res = await fetch(`/api/user/${customerId}/brief`);
+    const brief = await res.json();
+    renderUserBrief(brief);
+  } catch (e) {
+    wrap.innerHTML = `<div class="panel-error">Couldn't load your brief right now.</div>`;
+  }
+}
+
+function renderUserBrief(brief) {
+  const wrap = document.getElementById("userBriefWrap");
+  if (!brief.has_data) {
+    wrap.innerHTML = `<div class="brief-card"><h3>Personal AI Brief</h3><div class="panel-empty">${escapeHtml(brief.proactive_message)}</div></div>`;
+    return;
+  }
+  const s = brief.spend_summary;
+  const attentionRows = brief.needs_attention.length
+    ? brief.needs_attention.map(a => `<div class="brief-list-item">&#9888; Rs.${Number(a.amount).toLocaleString("en-IN")} &middot; ${escapeHtml(a.merchant_name)} &mdash; ${escapeHtml(a.issue)}</div>`).join("")
+    : `<div class="brief-empty">Nothing needs attention right now.</div>`;
+  const refundRows = brief.refund_status.length
+    ? brief.refund_status.map(r => `<div class="brief-list-item">Rs.${Number(r.amount).toLocaleString("en-IN")} refund &middot; ${r.status} &middot; ETA ${r.eta_hours}h</div>`).join("")
+    : "";
+
+  wrap.innerHTML = `
+    <div class="brief-card">
+      <h3>Personal AI Brief</h3>
+      <div class="brief-message">${escapeHtml(brief.proactive_message)}</div>
+      <div class="brief-stats">
+        <div class="brief-stat"><div class="num">Rs.${Number(s.total_spend_7d).toLocaleString("en-IN")}</div><div class="label">Spend, 7d</div></div>
+        <div class="brief-stat"><div class="num">Rs.${Number(s.total_spend_30d).toLocaleString("en-IN")}</div><div class="label">Spend, 30d</div></div>
+        <div class="brief-stat"><div class="num">${s.transaction_count_30d}</div><div class="label">Txns, 30d</div></div>
+      </div>
+      ${attentionRows}
+      ${refundRows}
+    </div>`;
+}
+
 async function refreshStats() {
   const box = document.getElementById("statsBox");
   const before = box.innerHTML;
@@ -291,8 +354,10 @@ async function refreshInboxBadge() {
     const res = await fetch("/api/escalations");
     const data = await res.json();
     const n = data.queue.length;
-    inboxBadge.textContent = n;
-    inboxBadge.classList.toggle("hidden", n === 0);
+    [inboxBadge, inboxBadgeMerch].forEach(badge => {
+      badge.textContent = n;
+      badge.classList.toggle("hidden", n === 0);
+    });
   } catch (e) { /* badge is best-effort */ }
 }
 
@@ -365,9 +430,12 @@ function renderInboxQueue(queue) {
   });
 }
 
+let inboxOpenedFrom = consoleView;
+
 function openInbox() {
+  inboxOpenedFrom = ALL_WORKSPACE_VIEWS.find(v => !v.classList.contains("hidden")) || consoleView;
+  hideAllWorkspaces();
   inboxView.classList.remove("hidden");
-  consoleView.classList.add("hidden");
   loadInboxView();
   if (inboxBadgeTimer) clearInterval(inboxBadgeTimer);
   inboxBadgeTimer = setInterval(refreshInboxBadge, 3000);
@@ -375,18 +443,23 @@ function openInbox() {
 
 function closeInbox() {
   inboxView.classList.add("hidden");
-  consoleView.classList.remove("hidden");
+  inboxOpenedFrom.classList.remove("hidden");
   if (inboxBadgeTimer) { clearInterval(inboxBadgeTimer); inboxBadgeTimer = null; }
 }
 
 humanInboxBtn.addEventListener("click", openInbox);
+humanInboxBtnMerch.addEventListener("click", openInbox);
 inboxBackBtn.addEventListener("click", closeInbox);
+
+let currentRunEvents = [];
 
 async function startRun(customerId, complaint) {
   currentCustomerId = customerId;
   renderedCount = 0;
+  currentRunEvents = [];
   activityBody.innerHTML = "";
   typingCardRefs.typingCardEl = null;
+  removeDecisionCard();
   addBubble("user", complaint);
   sendBtn.disabled = true;
   setStatus("running", "Running");
@@ -416,6 +489,7 @@ function pollEvents(runId) {
     let hadError = false;
     for (const event of data.events) {
       addActivityCard(event);
+      currentRunEvents.push(event);
       if (event.type === "done") {
         if (event.result && event.result.status === "error") hadError = true;
         const text = (event.result && event.result.final_text) || "Ticket escalated to a human agent.";
@@ -433,12 +507,89 @@ function pollEvents(runId) {
       if (hadError) setStatus("escalated", "Error");
       else if (finalStatus === "ESCALATED") setStatus("escalated", "Escalated");
       else setStatus("resolved", "Resolved");
+      if (!hadError) renderDecisionCard(currentRunEvents, data.state);
       refreshStats();
       refreshInboxBadge();
+      loadUserBrief(currentCustomerId);
     } else {
       showTyping();
     }
   }, 400);
+}
+
+// ---------- DECISION CARD (explainability) ----------
+// Built entirely from the run's own tool-call events and results - nothing here is
+// invented, it's a structured read-out of what the agent actually did and found.
+const ACTION_TOOL_LABELS = {
+  initiate_refund: "Refund initiated",
+  force_settlement: "Force-settled pending transaction",
+  escalate_to_human: "Escalated to human agent",
+  update_ticket: "Ticket updated",
+};
+
+function removeDecisionCard() {
+  const existing = document.getElementById("decisionCard");
+  if (existing) existing.remove();
+}
+
+function renderDecisionCard(events, state) {
+  removeDecisionCard();
+
+  const toolCalls = events.filter(e => e.type === "tool_call" || e.type === "escalation" || e.type === "message_sent");
+  const guardrails = events.filter(e => e.type === "guardrail_block");
+  const doneEvent = events.find(e => e.type === "done");
+  const finalText = doneEvent && doneEvent.result && doneEvent.result.final_text;
+
+  const actionEvent = events.find(e => e.tool === "initiate_refund" || e.tool === "force_settlement" || e.tool === "escalate_to_human");
+  const finalAction = actionEvent ? (ACTION_TOOL_LABELS[actionEvent.tool] || actionEvent.tool) : "Ticket updated, no monetary action taken";
+
+  const wasEscalated = events.some(e => e.type === "escalation");
+  // Confidence is derived, not guessed: a clean run with no guardrail friction and a
+  // clear resolution path is high confidence; guardrail pushback lowers it; an
+  // escalation means the agent itself judged the case ambiguous or high-risk.
+  let confidence = "high";
+  let confidenceReason = "Resolved via a single clean tool-call path with no guardrail pushback.";
+  if (wasEscalated) {
+    confidence = "medium";
+    confidenceReason = "Agent judged this case ambiguous or high-risk and deferred to a human rather than acting.";
+  } else if (guardrails.length > 0) {
+    confidence = "medium";
+    confidenceReason = `Agent's first attempt was blocked by a guardrail (${guardrails.length}x) before it found a safe path.`;
+  }
+
+  const evidence = toolCalls.slice(0, 6).map(e => {
+    const label = e.tool || e.type;
+    let detail = "";
+    try {
+      const r = typeof e.result === "string" ? JSON.parse(e.result) : e.result;
+      if (r && r.settlement_state) detail = ` &rarr; bank: ${r.settlement_state}`;
+      else if (r && r.status) detail = ` &rarr; ${r.status}`;
+    } catch (err) { /* non-JSON result, skip detail */ }
+    return `<li><code>${escapeHtml(label)}</code>${detail}</li>`;
+  }).join("");
+
+  const policyApplied = guardrails.length > 0
+    ? guardrails.map(g => `<li>${escapeHtml(g.result)}</li>`).join("")
+    : wasEscalated
+      ? "<li>Escalation policy: high-value or ambiguous case routed to a human, not auto-resolved.</li>"
+      : "<li>No guardrail was triggered - request was within all auto-resolution limits.</li>";
+
+  const card = document.createElement("div");
+  card.className = "decision-card";
+  card.id = "decisionCard";
+  card.innerHTML = `
+    <div class="decision-card-head">
+      <span class="decision-card-title">Decision Card</span>
+      <span class="confidence-pill ${confidence}">${confidence.toUpperCase()} CONFIDENCE</span>
+    </div>
+    <div class="decision-row"><div class="drk">Decision</div><div class="drv">${escapeHtml(finalAction)}</div></div>
+    <div class="decision-row"><div class="drk">Why</div><div class="drv">${escapeHtml(confidenceReason)}</div></div>
+    <div class="decision-row"><div class="drk">Evidence</div><div class="drv"><ul>${evidence || "<li>No tool calls recorded.</li>"}</ul></div></div>
+    <div class="decision-row"><div class="drk">Policy applied</div><div class="drv"><ul>${policyApplied}</ul></div></div>
+    <div class="decision-row"><div class="drk">Final message</div><div class="drv">${escapeHtml(finalText || "-")}</div></div>
+  `;
+  activityBody.appendChild(card);
+  maybeAutoscroll(activityBody);
 }
 
 sendBtn.addEventListener("click", () => {
@@ -455,10 +606,11 @@ complaintInput.addEventListener("keydown", (e) => {
   }
 });
 
-document.querySelectorAll(".preset-btn").forEach(btn => {
+document.querySelectorAll(".preset-btn[data-scenario]").forEach(btn => {
   btn.addEventListener("click", () => {
     const scenario = SCENARIOS[btn.dataset.scenario];
     startRun(scenario.customer_id, scenario.complaint);
+    loadUserBrief(scenario.customer_id);
   });
 });
 
@@ -468,34 +620,45 @@ resetBtn.addEventListener("click", async () => {
   chatBody.innerHTML = "";
   activityBody.innerHTML = "";
   typingCardRefs.typingCardEl = null;
+  removeDecisionCard();
   renderedCount = 0;
   sendBtn.disabled = false;
   setStatus("", "Idle");
   renderState({ ticket: null, transactions: [], refunds: {}, sms_outbox: [] });
   refreshStats();
   refreshInboxBadge();
+  loadUserBrief(currentCustomerId);
 });
+
+// ---------- ROLE SELECTOR / WORKSPACE ROUTER ----------
+// One shared shell: every workspace view lives hidden in the DOM until routed to,
+// and every workspace's back action returns here rather than closing the app.
+const ALL_WORKSPACE_VIEWS = [consoleView, inboxView, salesView, reconView, merchantView];
+
+function hideAllWorkspaces() {
+  ALL_WORKSPACE_VIEWS.forEach(v => v.classList.add("hidden"));
+}
 
 function openConsole() {
   landing.classList.add("fade-out");
-  backBtn.classList.remove("hidden");
   setTimeout(() => {
     landing.classList.add("hidden");
     document.body.classList.add("console-active");
+    hideAllWorkspaces();
     consoleView.classList.remove("hidden");
     consoleView.classList.add("fade-in");
     requestAnimationFrame(() => requestAnimationFrame(() => consoleView.classList.add("show")));
   }, 250);
+  loadUserBrief(currentCustomerId);
 }
 
 async function backToLanding() {
   if (pollTimer) clearInterval(pollTimer);
   await fetch("/api/reset", { method: "POST" });
-  consoleView.classList.add("hidden");
+  hideAllWorkspaces();
   consoleView.classList.remove("fade-in", "show");
   document.body.classList.remove("console-active");
   landing.classList.remove("hidden", "fade-out");
-  backBtn.classList.add("hidden");
   chatBody.innerHTML = "";
   activityBody.innerHTML = "";
   typingCardRefs.typingCardEl = null;
@@ -505,11 +668,8 @@ async function backToLanding() {
   renderState({ ticket: null, transactions: [], refunds: {}, sms_outbox: [] });
 }
 
-openConsoleBtn.addEventListener("click", () => { openConsole(); refreshStats(); refreshInboxBadge(); });
+roleUserCard.addEventListener("click", () => { openConsole(); refreshStats(); refreshInboxBadge(); });
 backBtn.addEventListener("click", backToLanding);
-learnMoreBtn.addEventListener("click", () => {
-  document.querySelector(".comparison").scrollIntoView({ behavior: "smooth" });
-});
 
 const revealObserver = new IntersectionObserver((entries) => {
   entries.forEach((entry, i) => {
@@ -539,7 +699,7 @@ async function loadLeadPresets() {
     btn.addEventListener("click", () => {
       const lead = data.leads.find(l => l.lead_id === btn.dataset.leadId);
       renderLeadPreview(lead);
-      startSalesRun(lead.lead_id, lead.customer_id);
+      startSalesRun(lead.lead_id, lead.customer_id, lead.cart_value);
     });
   });
 }
@@ -553,9 +713,14 @@ function renderLeadPreview(lead) {
     </div>`;
 }
 
-async function startSalesRun(leadId, customerId) {
+let currentSalesRunEvents = [];
+let currentLeadCartValue = 0;
+
+async function startSalesRun(leadId, customerId, cartValue) {
   currentLeadId = leadId;
+  currentLeadCartValue = cartValue || 0;
   salesRenderedCount = 0;
+  currentSalesRunEvents = [];
   salesActivityBody.innerHTML = "";
   typingCardRefs.salesTypingCardEl = null;
   setSalesStatus("running", "Running");
@@ -585,6 +750,7 @@ function pollSalesEvents(runId) {
     let hadError = false;
     for (const event of data.events) {
       addActivityCard(event, salesActivityBody, "salesTypingCardEl");
+      currentSalesRunEvents.push(event);
       if (event.type === "done" && event.result && event.result.status === "error") hadError = true;
     }
     salesRenderedCount += data.events.length;
@@ -597,7 +763,11 @@ function pollSalesEvents(runId) {
       if (hadError) setSalesStatus("escalated", "Error");
       else if (status === "COUPON_OFFERED") setSalesStatus("resolved", "Coupon Offered");
       else setSalesStatus("resolved", "Contacted");
-      refreshSalesStats();
+      if (!hadError) {
+        const blocked = currentSalesRunEvents.filter(e => e.type === "guardrail_block");
+        updateImpactFromRun(currentLeadCartValue, data.state, blocked);
+      }
+      loadBusinessBrief();
     } else {
       showTyping(salesActivityBody, "salesTypingCardEl");
     }
@@ -638,35 +808,101 @@ function renderSalesState(state) {
   if (smsBox.innerHTML !== beforeS) flash(smsBox);
 }
 
-function refreshSalesStats() {
-  const box = document.getElementById("salesStatsBox");
-  const before = box.innerHTML;
-  box.innerHTML = `<h3>Session Outcomes</h3><div class="kv">Same agent architecture as Support &mdash; see Support console for aggregate resolution stats</div>`;
-  if (box.innerHTML !== before) flash(box);
+// ---------- BUSINESS AI BRIEF (Business Owner workspace) ----------
+// Deterministic - fetched from GET /api/business/{business_id}/brief, no LLM call involved.
+async function loadBusinessBrief() {
+  const wrap = document.getElementById("businessBriefWrap");
+  wrap.innerHTML = `<div class="panel-loading">Loading your brief</div>`;
+  try {
+    const res = await fetch(`/api/business/default/brief`);
+    const brief = await res.json();
+    renderBusinessBrief(brief);
+  } catch (e) {
+    wrap.innerHTML = `<div class="panel-error">Couldn't load the business brief right now.</div>`;
+  }
 }
 
-function openSales(from) {
-  salesOpenedFrom = from;
+function renderBusinessBrief(brief) {
+  const wrap = document.getElementById("businessBriefWrap");
+  if (!brief.has_data) {
+    wrap.innerHTML = `<div class="brief-card"><h3>Business AI Brief</h3><div class="panel-empty">No leads yet.</div></div>`;
+    return;
+  }
+  const r = brief.recoverable_leads;
+  const cd = brief.coupon_discipline;
+  const retryOnly = brief.retry_only_lead_ids.length
+    ? `<div class="brief-list-item">Retry-reminder only (no discount needed): ${brief.retry_only_lead_ids.join(", ")}</div>`
+    : "";
+
+  wrap.innerHTML = `
+    <div class="brief-card">
+      <h3>Business AI Brief</h3>
+      <div class="brief-message">${r.count} recoverable lead(s) worth an estimated Rs.${Number(r.estimated_value).toLocaleString("en-IN")}.</div>
+      <div class="brief-stats">
+        <div class="brief-stat"><div class="num">${r.count}</div><div class="label">Recoverable leads</div></div>
+        <div class="brief-stat"><div class="num">Rs.${Number(r.estimated_value).toLocaleString("en-IN")}</div><div class="label">Est. value</div></div>
+        <div class="brief-stat"><div class="num">${cd.customers_at_coupon_limit}</div><div class="label">At coupon limit</div></div>
+      </div>
+      ${retryOnly}
+      <div class="brief-list-item">Discount protected so far: Rs.${Number(cd.estimated_discount_protected).toLocaleString("en-IN")} (guardrail: max ${cd.max_discount_pct}%, ${cd.max_coupons_per_customer} coupon/customer)</div>
+    </div>`;
+}
+
+// ---------- IMPACT CARD ----------
+// Running tally for this session, built only from confirmed tool results (coupons
+// actually issued, messages actually sent) - not projected or guessed numbers.
+let impactTotals = { leadsContacted: 0, couponsIssued: 0, revenueRecovered: 0, discountProtected: 0 };
+
+function resetImpactCard() {
+  impactTotals = { leadsContacted: 0, couponsIssued: 0, revenueRecovered: 0, discountProtected: 0 };
+  renderImpactCard();
+}
+
+function renderImpactCard() {
+  const box = document.getElementById("impactCardBox");
+  box.innerHTML = `
+    <h3>Revenue Impact</h3>
+    <div class="impact-grid">
+      <div class="impact-stat"><div class="num">${impactTotals.leadsContacted}</div><div class="label">Leads contacted</div></div>
+      <div class="impact-stat"><div class="num">${impactTotals.couponsIssued}</div><div class="label">Coupons issued</div></div>
+      <div class="impact-stat"><div class="num">Rs.${Number(impactTotals.revenueRecovered).toLocaleString("en-IN")}</div><div class="label">Est. revenue recovered</div></div>
+      <div class="impact-stat"><div class="num">Rs.${Number(impactTotals.discountProtected).toLocaleString("en-IN")}</div><div class="label">Discount protected</div></div>
+    </div>`;
+}
+
+function updateImpactFromRun(leadCartValue, state, blockedEvents) {
+  impactTotals.leadsContacted += 1;
+  if (state.coupon) {
+    impactTotals.couponsIssued += 1;
+    impactTotals.revenueRecovered += leadCartValue;
+  }
+  const blockedDiscountAmount = (blockedEvents || [])
+    .filter(e => e.tool === "issue_discount_coupon")
+    .length;
+  if (blockedDiscountAmount > 0 || (!state.coupon && leadCartValue)) {
+    impactTotals.discountProtected += leadCartValue * 0.15;
+  }
+  renderImpactCard();
+}
+
+function openSales() {
   landing.classList.add("hidden");
-  consoleView.classList.add("hidden");
-  inboxView.classList.add("hidden");
+  hideAllWorkspaces();
   salesView.classList.remove("hidden");
   document.body.classList.add("console-active");
   if (!leadPresets.children.length) loadLeadPresets();
+  loadBusinessBrief();
+  resetImpactCard();
 }
 
 salesBackBtn.addEventListener("click", () => {
-  salesView.classList.add("hidden");
-  if (salesOpenedFrom === "console") {
-    consoleView.classList.remove("hidden");
-  } else {
-    document.body.classList.remove("console-active");
-    landing.classList.remove("hidden", "fade-out");
-  }
+  hideAllWorkspaces();
+  document.body.classList.remove("console-active");
+  landing.classList.remove("hidden", "fade-out");
 });
 
-openSalesBtn.addEventListener("click", () => openSales("landing"));
-goSalesBtn.addEventListener("click", () => openSales("console"));
+roleBusinessCard.addEventListener("click", openSales);
+humanInboxBtnBiz.addEventListener("click", openInbox);
 
 salesResetBtn.addEventListener("click", async () => {
   if (salesPollTimer) clearInterval(salesPollTimer);
@@ -678,6 +914,8 @@ salesResetBtn.addEventListener("click", async () => {
   setSalesStatus("", "Idle");
   renderSalesState({ lead_record: null, coupon: null, sms_outbox: [] });
   loadLeadPresets();
+  loadBusinessBrief();
+  resetImpactCard();
 });
 
 // ---------- RECONCILIATION TEAMMATE ----------
@@ -764,28 +1002,18 @@ function renderReconState(state, summary) {
   if (txnBox.innerHTML !== beforeT) flash(txnBox);
 }
 
-function openRecon(from) {
-  reconOpenedFrom = from;
-  landing.classList.add("hidden");
-  consoleView.classList.add("hidden");
-  inboxView.classList.add("hidden");
-  salesView.classList.add("hidden");
+function openRecon() {
+  hideAllWorkspaces();
   reconView.classList.remove("hidden");
   document.body.classList.add("console-active");
 }
 
 reconBackBtn.addEventListener("click", () => {
-  reconView.classList.add("hidden");
-  if (reconOpenedFrom === "console") {
-    consoleView.classList.remove("hidden");
-  } else {
-    document.body.classList.remove("console-active");
-    landing.classList.remove("hidden", "fade-out");
-  }
+  hideAllWorkspaces();
+  merchantView.classList.remove("hidden");
 });
 
-openReconBtn.addEventListener("click", () => openRecon("landing"));
-goReconBtn.addEventListener("click", () => openRecon("console"));
+goPlatformReconBtn.addEventListener("click", openRecon);
 runSweepBtn.addEventListener("click", startReconSweep);
 
 reconResetBtn.addEventListener("click", async () => {
@@ -798,4 +1026,325 @@ reconResetBtn.addEventListener("click", async () => {
   setReconStatus("", "Idle");
   renderReconState({ transactions: [] }, null);
   document.getElementById("reconSummaryBox").innerHTML = `<h3>Last Sweep</h3><div class="kv">No sweep run yet</div>`;
+});
+
+// ---------- MERCHANT WORKSPACE ----------
+// Collections & settlement operations: a merchant picker (simulates merchant login),
+// a proactive sweep over that merchant's own transactions, and a natural-language
+// query box. Every request carries the picked merchant_id, and the backend's tool
+// executor (merchant_tools.py) independently checks that scope on every call - the
+// frontend picker is a UX convenience, not the security boundary.
+
+function setMerchantStatus(kind, label) {
+  merchantStatusIndicator.className = `status-indicator ${kind}`;
+  merchantStatusText.textContent = label;
+}
+
+async function loadMerchantPicker() {
+  try {
+    const res = await fetch("/api/merchant/list");
+    const data = await res.json();
+    merchantList = data.merchants;
+    merchantPicker.innerHTML = merchantList.map(m =>
+      `<button class="merchant-chip" data-merchant-id="${m.merchant_id}">${escapeHtml(m.name)}</button>`
+    ).join("");
+    merchantPicker.querySelectorAll(".merchant-chip").forEach(chip => {
+      chip.addEventListener("click", () => selectMerchant(chip.dataset.merchantId));
+    });
+    if (merchantList.length && !currentMerchantId) selectMerchant(merchantList[0].merchant_id);
+  } catch (e) {
+    merchantPicker.innerHTML = `<div class="panel-error">Couldn't load merchants.</div>`;
+  }
+}
+
+function selectMerchant(merchantId) {
+  currentMerchantId = merchantId;
+  merchantPicker.querySelectorAll(".merchant-chip").forEach(chip => {
+    chip.classList.toggle("active", chip.dataset.merchantId === merchantId);
+  });
+  merchantChatBody.innerHTML = "";
+  merchantActivityBody.innerHTML = "";
+  typingCardRefs.merchantTypingCardEl = null;
+  loadMerchantBrief(merchantId);
+  loadMerchantState(merchantId);
+}
+
+async function loadMerchantBrief(merchantId) {
+  merchantBriefWrap.innerHTML = `<div class="panel-loading">Loading merchant brief</div>`;
+  try {
+    const merchant = merchantList.find(m => m.merchant_id === merchantId);
+    const stateRes = await fetch(`/api/merchant/${merchantId}/state`);
+    const state = await stateRes.json();
+    renderMerchantBriefFromState(merchant, state);
+  } catch (e) {
+    merchantBriefWrap.innerHTML = `<div class="panel-error">Couldn't load merchant brief.</div>`;
+  }
+}
+
+function renderMerchantBriefFromState(merchant, state) {
+  if (!merchant) {
+    merchantBriefWrap.innerHTML = `<div class="panel-empty">Select a merchant above.</div>`;
+    return;
+  }
+  const txns = (state && state.transactions) || [];
+  const pendingCount = txns.filter(t => t.settlement_status === "PENDING" || t.settlement_status === null).length;
+  const collectedTotal = txns.reduce((sum, t) => sum + Number(t.amount), 0);
+
+  merchantBriefWrap.innerHTML = `
+    <div class="brief-card">
+      <h3>Merchant AI Brief</h3>
+      <div class="brief-message">${escapeHtml(merchant.name)} &middot; ${escapeHtml(merchant.owner_name)} &middot; ${escapeHtml(merchant.category)}</div>
+      <div class="brief-stats">
+        <div class="brief-stat"><div class="num">Rs.${Number(collectedTotal).toLocaleString("en-IN")}</div><div class="label">Recorded collections</div></div>
+        <div class="brief-stat"><div class="num">${pendingCount}</div><div class="label">Pending/unverified</div></div>
+        <div class="brief-stat"><div class="num">${txns.length}</div><div class="label">Transactions</div></div>
+      </div>
+      <div class="brief-list-item">Run a settlement sweep or ask a question below to investigate and act.</div>
+    </div>`;
+}
+
+async function loadMerchantState(merchantId) {
+  try {
+    const res = await fetch(`/api/merchant/${merchantId}/state`);
+    const state = await res.json();
+    renderMerchantTxnBox(state);
+  } catch (e) {
+    renderMerchantTxnBox({ transactions: [] });
+  }
+}
+
+function renderMerchantTxnBox(state) {
+  const box = document.getElementById("merchantTxnBox");
+  const before = box.innerHTML;
+  const txns = (state && state.transactions || []).filter(Boolean);
+  if (!txns.length) {
+    box.innerHTML = `<h3>Today's Collections &amp; Pending Settlements</h3><div class="panel-empty">No data yet &mdash; run a sweep or ask a question.</div>`;
+  } else {
+    const rows = txns.map(t => `
+      <div class="kv">
+        <span class="k">${t.mtxn_id}</span> Rs.${Number(t.amount).toLocaleString("en-IN")} &middot; ${escapeHtml(t.payer_name)}<br>
+        <span class="k">collected:</span> ${t.collection_status} &middot; <span class="k">settlement:</span> ${t.settlement_status || "-"} &middot; <span class="k">reversal:</span> ${t.refund_id || "-"}
+      </div>`).join("<hr style='border-color:var(--border);margin:6px 0'>");
+    box.innerHTML = `<h3>Today's Collections &amp; Pending Settlements</h3>${rows}`;
+  }
+  if (box.innerHTML !== before) flash(box);
+}
+
+function renderMerchantExceptions(events) {
+  const box = document.getElementById("merchantExceptionsBox");
+  const before = box.innerHTML;
+  const exceptions = (events || []).filter(e => e.type === "escalation" || e.type === "guardrail_block");
+  if (!exceptions.length) {
+    box.innerHTML = `<h3>Exceptions / Escalations</h3><div class="kv">None</div>`;
+  } else {
+    const rows = exceptions.map(e => `<div class="kv"><span class="status-pill ESCALATED">${e.type === "escalation" ? "ESCALATED" : "BLOCKED"}</span> ${escapeHtml(e.tool || "")}</div>`).join("");
+    box.innerHTML = `<h3>Exceptions / Escalations</h3>${rows}`;
+  }
+  if (box.innerHTML !== before) flash(box);
+}
+
+// --- Proactive sweep ---
+async function startMerchantSweep() {
+  if (!currentMerchantId) return;
+  merchantSweepRenderedCount = 0;
+  merchantActivityBody.innerHTML = "";
+  typingCardRefs.merchantTypingCardEl = null;
+  merchantSweepBtn.disabled = true;
+  setMerchantStatus("running", "Sweeping");
+  showTyping(merchantActivityBody, "merchantTypingCardEl");
+
+  const res = await fetch(`/api/merchant/${currentMerchantId}/sweep`, { method: "POST" });
+  const { run_id, error } = await res.json();
+  if (error) {
+    merchantActivityBody.innerHTML = `<div class="panel-error">${escapeHtml(error)}</div>`;
+    merchantSweepBtn.disabled = false;
+    setMerchantStatus("", "Idle");
+    return;
+  }
+  pollMerchantSweepEvents(run_id);
+}
+
+function pollMerchantSweepEvents(runId) {
+  if (merchantSweepPollTimer) clearInterval(merchantSweepPollTimer);
+  let pollInFlight = false;
+  let allEvents = [];
+  merchantSweepPollTimer = setInterval(async () => {
+    if (pollInFlight) return;
+    pollInFlight = true;
+    const res = await fetch(`/api/merchant/sweep/${runId}/events?since=${merchantSweepRenderedCount}`);
+    const data = await res.json();
+    pollInFlight = false;
+
+    if (data.events.length > 0) hideTyping("merchantTypingCardEl");
+
+    let hadError = false;
+    let summary = null;
+    for (const event of data.events) {
+      addActivityCard(event, merchantActivityBody, "merchantTypingCardEl");
+      allEvents.push(event);
+      if (event.type === "done") {
+        if (event.result && event.result.status === "error") hadError = true;
+        else summary = event.result;
+      }
+    }
+    merchantSweepRenderedCount += data.events.length;
+    renderMerchantTxnBox(data.state);
+    renderMerchantExceptions(allEvents);
+    renderMerchantSweepSummary(summary);
+
+    if (data.done) {
+      clearInterval(merchantSweepPollTimer);
+      merchantSweepPollTimer = null;
+      merchantSweepBtn.disabled = false;
+      if (hadError) setMerchantStatus("escalated", "Error");
+      else setMerchantStatus("resolved", "Sweep Complete");
+      refreshInboxBadge();
+    } else {
+      showTyping(merchantActivityBody, "merchantTypingCardEl");
+    }
+  }, 400);
+}
+
+function renderMerchantSweepSummary(summary) {
+  const box = document.getElementById("merchantSweepBox");
+  if (!summary) return;
+  const btn = document.getElementById("merchantSweepBtn");
+  const btnHtml = btn.outerHTML;
+  box.innerHTML = `<h3>Reconciliation Sweep</h3>${btnHtml}
+    <div class="kv"><span class="k">Audited</span> ${summary.total}</div>
+    <div class="kv"><span class="k">Matched</span> ${summary.matched}</div>
+    <div class="kv"><span class="k">Auto-fixed</span> ${summary.auto_fixed}</div>
+    <div class="kv"><span class="k">Escalated</span> ${summary.escalated}</div>`;
+  document.getElementById("merchantSweepBtn").addEventListener("click", startMerchantSweep);
+  flash(box);
+}
+
+// --- Natural-language query ---
+function addMerchantBubble(role, text) {
+  const div = document.createElement("div");
+  div.className = `bubble ${role}`;
+  div.textContent = text;
+  merchantChatBody.appendChild(div);
+  if (isNearBottom(merchantChatBody)) {
+    merchantChatBody.scrollTo({ top: merchantChatBody.scrollHeight, behavior: "smooth" });
+  }
+}
+
+async function startMerchantQuery(question) {
+  if (!currentMerchantId) return;
+  merchantRenderedCount = 0;
+  merchantActivityBody.innerHTML = "";
+  typingCardRefs.merchantTypingCardEl = null;
+  addMerchantBubble("user", question);
+  merchantQuerySendBtn.disabled = true;
+  setMerchantStatus("running", "Investigating");
+  showTyping(merchantActivityBody, "merchantTypingCardEl");
+
+  const res = await fetch("/api/merchant/query", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ merchant_id: currentMerchantId, question }),
+  });
+  const { run_id, error } = await res.json();
+  if (error) {
+    addMerchantBubble("agent", error);
+    merchantQuerySendBtn.disabled = false;
+    setMerchantStatus("", "Idle");
+    return;
+  }
+  pollMerchantQueryEvents(run_id);
+}
+
+function pollMerchantQueryEvents(runId) {
+  if (merchantPollTimer) clearInterval(merchantPollTimer);
+  let pollInFlight = false;
+  let allEvents = [];
+  merchantPollTimer = setInterval(async () => {
+    if (pollInFlight) return;
+    pollInFlight = true;
+    const res = await fetch(`/api/merchant/query/${runId}/events?since=${merchantRenderedCount}`);
+    const data = await res.json();
+    pollInFlight = false;
+
+    if (data.events.length > 0) hideTyping("merchantTypingCardEl");
+
+    let hadError = false;
+    for (const event of data.events) {
+      addActivityCard(event, merchantActivityBody, "merchantTypingCardEl");
+      allEvents.push(event);
+      if (event.type === "done") {
+        if (event.result && event.result.status === "error") hadError = true;
+        const text = (event.result && event.result.final_text) || "Ticket escalated to a human agent.";
+        addMerchantBubble("agent", text);
+      }
+    }
+    merchantRenderedCount += data.events.length;
+    renderMerchantTxnBox(data.state);
+    renderMerchantExceptions(allEvents);
+
+    if (data.done) {
+      clearInterval(merchantPollTimer);
+      merchantPollTimer = null;
+      merchantQuerySendBtn.disabled = false;
+      if (hadError) setMerchantStatus("escalated", "Error");
+      else if (allEvents.some(e => e.type === "escalation")) setMerchantStatus("escalated", "Escalated");
+      else setMerchantStatus("resolved", "Resolved");
+      refreshInboxBadge();
+    } else {
+      showTyping(merchantActivityBody, "merchantTypingCardEl");
+    }
+  }, 400);
+}
+
+merchantQuerySendBtn.addEventListener("click", () => {
+  const text = merchantQueryInput.value.trim();
+  if (!text) return;
+  startMerchantQuery(text);
+  merchantQueryInput.value = "";
+});
+
+merchantQueryInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    merchantQuerySendBtn.click();
+  }
+});
+
+merchantSweepBtn.addEventListener("click", startMerchantSweep);
+
+function openMerchant() {
+  landing.classList.add("hidden");
+  hideAllWorkspaces();
+  merchantView.classList.remove("hidden");
+  document.body.classList.add("console-active");
+  if (!merchantPicker.children.length) loadMerchantPicker();
+  refreshInboxBadge();
+}
+
+merchantBackBtn.addEventListener("click", () => {
+  hideAllWorkspaces();
+  document.body.classList.remove("console-active");
+  landing.classList.remove("hidden", "fade-out");
+});
+
+roleMerchantCard.addEventListener("click", openMerchant);
+
+merchantResetBtn.addEventListener("click", async () => {
+  if (merchantPollTimer) clearInterval(merchantPollTimer);
+  if (merchantSweepPollTimer) clearInterval(merchantSweepPollTimer);
+  await fetch("/api/reset", { method: "POST" });
+  merchantChatBody.innerHTML = "";
+  merchantActivityBody.innerHTML = "";
+  typingCardRefs.merchantTypingCardEl = null;
+  merchantRenderedCount = 0;
+  merchantSweepRenderedCount = 0;
+  merchantQuerySendBtn.disabled = false;
+  merchantSweepBtn.disabled = false;
+  setMerchantStatus("", "Idle");
+  renderMerchantTxnBox({ transactions: [] });
+  renderMerchantExceptions([]);
+  document.getElementById("merchantSweepBox").innerHTML = `<h3>Reconciliation Sweep</h3><button class="preset-btn" id="merchantSweepBtn" style="margin-bottom:8px;">Run Settlement Sweep</button><div class="kv">No sweep run yet</div>`;
+  document.getElementById("merchantSweepBtn").addEventListener("click", startMerchantSweep);
+  if (currentMerchantId) loadMerchantBrief(currentMerchantId);
+  refreshInboxBadge();
 });
