@@ -7,7 +7,7 @@
 A hand-rolled multi-agent system that reads context, decides, and acts — refunds, settlements,
 coupons, escalations — end to end, instead of just chatting about them.
 
-![Landing Page](docs/images/landing_page.png)
+![Paytm User Workspace](docs/images/User1.png)
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](#prerequisites)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](#tech-stack)
@@ -281,6 +281,8 @@ The **Decision Card** (User workspace) and **Impact Card** (Business workspace) 
 
 > Personal finance & payment support · Built on `agent.py` / `tools.py`
 
+![User Dashboard](docs/images/User1a.png)
+
 **Dashboard:** Personal AI Brief · Customer support chat · Live AI activity · Payment/refund state · Recent transactions
 
 **Personal AI Brief** (`GET /api/user/{customer_id}/brief`) is deterministic — no LLM call. It computes recent spend summary, any failed/pending payments needing attention, refund status, and a Hinglish reminder message.
@@ -322,6 +324,8 @@ The **Decision Card** (User workspace) and **Impact Card** (Business workspace) 
 
 > Collections & settlement operations · Built on `merchant_agent.py` / `merchant_tools.py` + `mock_merchants_db.py`
 
+![Merchant Dashboard](docs/images/Merchant.png)
+
 **Dashboard:** Merchant AI Brief · Today's collections · Pending settlements · Sweep controls · Live agent activity · Exceptions/escalations
 
 **Two operating modes:**
@@ -359,6 +363,8 @@ The **Decision Card** (User workspace) and **Impact Card** (Business workspace) 
 ### C. Business Owner Workspace
 
 > Growth & revenue operations · Built on `sales_agent.py` / `sales_tools.py`
+
+![Business Dashboard](docs/images/Bussiness.png)
 
 **Dashboard:** Business AI Brief · Recovery opportunities · Live agent activity · Coupon/outreach state · Revenue impact
 
